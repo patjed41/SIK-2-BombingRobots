@@ -3,6 +3,10 @@
 
 #include <stdio.h>
 #include <stdarg.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <errno.h>
+#include <string.h>
 
 #define CHECK(x)                                                          \
     do {                                                                  \
@@ -40,7 +44,7 @@
         PRINT_ERRNO();                                                    \
     } while (0)
 
-void fatal(const char *fmt, ...) {
+inline void fatal(const char *fmt, ...) {
     va_list fmt_args;
 
     fprintf(stderr, "Error: ");

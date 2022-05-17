@@ -158,10 +158,12 @@ struct sockaddr get_address(const std::string &host, uint16_t port) {
     address.sin6_family = AF_INET6;
     address.sin6_port = htons(port);
     address.sin6_flowinfo = 0;
-    memcpy(((struct sockaddr_in6 *) (address_result->ai_addr))->sin6_addr.s6_addr,
-           address.sin6_addr.s6_addr, 16);
+    memcpy(address.sin6_addr.s6_addr,
+           ((struct sockaddr_in6 *) (address_result->ai_addr))->sin6_addr.s6_addr, 16);
     address.sin6_scope_id = 0;
 
     freeaddrinfo(address_result);
     return *((struct sockaddr *) &address);
 }
+
+

@@ -10,6 +10,7 @@ set(CMAKE_VERBOSE_MAKEFILE OFF)
 set(SOURCE_FILES
     src/main.cpp
     src/client-parameters/client_parameters.cpp
+    src/net/net.cpp
 )
 
 add_executable(robots-client ${SOURCE_FILES})

@@ -18,6 +18,6 @@ struct ClientParameters {
 
 ClientParameters read_parameters(int argc, char *argv[]);
 
-struct sockaddr get_address(const std::string &host, uint16_t port);
+struct sockaddr_in get_address_ipv4(const std::string &host, uint16_t port);
 
 #endif //CLIENT_PARAMETERS_H
