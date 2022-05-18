@@ -1,13 +1,14 @@
 #include "net.h"
 #include "../err.h"
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <errno.h>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <cerrno>
 #include <sys/socket.h>
 #include <unistd.h>
-#include <iostream>
+#include <netinet/tcp.h>
+
 
 int open_socket(bool is_ipv4, bool is_tcp) {
     int domain = is_ipv4 ? PF_INET : PF_INET6;
@@ -24,7 +25,7 @@ int open_socket(bool is_ipv4, bool is_tcp) {
 
 void bind_socket(int socket_fd, uint16_t port, bool is_ipv4) {
     if (is_ipv4) {
-        struct sockaddr_in address;
+        struct sockaddr_in address{};
         address.sin_family = AF_INET;
         address.sin_addr.s_addr = htonl(INADDR_ANY);
         address.sin_port = htons(port);
@@ -32,7 +33,7 @@ void bind_socket(int socket_fd, uint16_t port, bool is_ipv4) {
                          (socklen_t) sizeof(address)));
     }
     else {
-        struct sockaddr_in6 address;
+        struct sockaddr_in6 address{};
         address.sin6_family = AF_INET6;
         address.sin6_flowinfo = 0;
         address.sin6_addr = in6addr_any;
@@ -45,14 +46,14 @@ void bind_socket(int socket_fd, uint16_t port, bool is_ipv4) {
 
 void connect_socket(int socket_fd, std::string &host, uint16_t port) {
     if (is_address_ipv4(host)) {
-        struct sockaddr_in address;
+        struct sockaddr_in address{};
         address.sin_family = AF_INET;
         address.sin_port = htons(port);
         ENSURE(inet_pton(AF_INET, host.c_str(), &address.sin_addr) == 1);
         CHECK_ERRNO(connect(socket_fd, (struct sockaddr *) &address, sizeof(struct sockaddr_in)));
     }
     else {
-        struct sockaddr_in6 address;
+        struct sockaddr_in6 address{};
         address.sin6_family = AF_INET6;
         address.sin6_flowinfo = 0;
         ENSURE(inet_pton(AF_INET6, host.c_str(), &address.sin6_addr) == 1);
@@ -67,11 +68,36 @@ void close_socket(int socket_fd) {
 }
 
 bool is_address_ipv4(const std::string &host) {
-    struct sockaddr_in address;
+    struct sockaddr_in address{};
     return inet_pton(AF_INET, host.c_str(), &address.sin_addr) == 1;
 }
 
 bool is_address_ipv6(const std::string &host) {
-    struct sockaddr_in6 address;
+    struct sockaddr_in6 address{};
     return (inet_pton(AF_INET6, host.c_str(), &address.sin6_addr) == 1);
 }
+
+void turn_off_nagle(int socked_fd) {
+    struct ip_mreq ipv{};
+    CHECK_ERRNO(setsockopt(socked_fd, IPPROTO_TCP, TCP_NODELAY, (void *)&ipv, sizeof(ipv)));
+}
+
+size_t receive_message(int socket_fd, void *buffer, size_t max_length, int flags) {
+    errno = 0;
+    ssize_t received_length = recv(socket_fd, buffer, max_length, flags);
+    if (received_length < 0) {
+        PRINT_ERRNO();
+    }
+    return (size_t) received_length;
+}
+
+void send_message(int socket_fd, const void *message, size_t length, int flags) {
+    errno = 0;
+    ssize_t sent_length = send(socket_fd, message, length, flags);
+    if (sent_length < 0) {
+        PRINT_ERRNO();
+    }
+    ENSURE(sent_length == (ssize_t) length);
+}
+
+

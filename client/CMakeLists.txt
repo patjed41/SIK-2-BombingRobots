@@ -11,6 +11,9 @@ set(SOURCE_FILES
     src/main.cpp
     src/client-parameters/client_parameters.cpp
     src/net/net.cpp
+    src/client-data/client-data.cpp
+    src/messages/messages.cpp
 )
 
 add_executable(robots-client ${SOURCE_FILES})
+target_link_libraries(robots-client pthread)

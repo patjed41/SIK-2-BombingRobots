@@ -18,4 +18,10 @@ bool is_address_ipv4(const std::string &host);
 
 bool is_address_ipv6(const std::string &host);
 
+void turn_off_nagle(int socked_fd);
+
+size_t receive_message(int socket_fd, void *buffer, size_t max_length, int flags);
+
+void send_message(int socket_fd, const void *message, size_t length, int flags);
+
 #endif //NET_H
