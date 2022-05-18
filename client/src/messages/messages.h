@@ -13,4 +13,6 @@ void send_message_to_server(ClientData &data, uint8_t message_type);
 // returns true if client should send message to gui
 bool read_message_from_server(ClientData &data);
 
+void send_message_to_gui(ClientData &data);
+
 #endif //ROBOTSCLIENT_MESSAGES_H

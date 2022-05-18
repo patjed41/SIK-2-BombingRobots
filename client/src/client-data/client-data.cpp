@@ -9,7 +9,6 @@ void init(ClientData* data) {
 
 void clear(ClientData* data) {
     data->is_in_lobby = true;
-    data->players_count = 0;
     data->players.clear();
     data->player_positions.clear();
     data->blocks.clear();

@@ -5,6 +5,9 @@
 #include <iostream>
 #include <algorithm>
 
+#define DATAGRAM_LIMIT 65507
+#define GUI_WRONG_MSG 10
+
 template<class T>
 static T read_uint(int socket_fd) {
     T value;
@@ -42,7 +45,9 @@ void read_hello(ClientData &data) {
 uint8_t read_message_from_gui(ClientData &data) {
     uint8_t buffer[2];
     size_t read_length = receive_message(data.gui_rec_fd, buffer, 2, 0);
-    ENSURE((read_length == 1 && buffer[0] < 2) || (read_length == 2 && buffer[1] < 4));
+    if (!(read_length == 1 && buffer[0] < 2) && !(read_length == 2 && buffer[1] < 4)) {
+        return GUI_WRONG_MSG;
+    }
 
     switch (buffer[0]) {
         case 0:
@@ -52,11 +57,15 @@ uint8_t read_message_from_gui(ClientData &data) {
         case 2:
             return 2 + buffer[1];
         default:
-            return 0; // This won't happen.
+            return 0;
     }
 }
 
 void send_message_to_server(ClientData &data, uint8_t message_type) {
+    if (message_type == GUI_WRONG_MSG) {
+        return;
+    }
+
     ENSURE(pthread_mutex_lock(&data.lock) == 0);
     bool in_lobby = data.is_in_lobby;
     ENSURE(pthread_mutex_unlock(&data.lock) == 0);
@@ -215,20 +224,139 @@ bool read_message_from_server(ClientData &data) {
     uint8_t message_type = read_uint<uint8_t>(data.server_fd);
     ENSURE(message_type > 0 && message_type < 5);
 
+    ENSURE(pthread_mutex_lock(&data.lock) == 0);
+
+    bool result = false;
+
     switch (message_type) {
         case 1:
             read_accepted_player(data);
-            return true;
+            result = true;
+            break;
         case 2:
             read_game_started(data);
-            return false;
+            result = false;
+            break;
         case 3:
             read_turn(data);
-            return true;
+            result = true;
+            break;
         case 4:
             read_game_ended(data);
-            return false; // ?????????
-        default:
-            return false; // This won't happen.
+            result = false;
+            break;
     }
+
+    ENSURE(pthread_mutex_unlock(&data.lock) == 0);
+    return result;
+}
+
+template<class T>
+void put_uint_into_buffer(T value, uint8_t *buffer, size_t &next_index) {
+    memcpy(buffer + next_index, &value, sizeof(T));
+    next_index += sizeof(T);
+}
+
+void put_string_into_buffer(const std::string &str, uint8_t *buffer, size_t &next_index) {
+    put_uint_into_buffer<uint8_t>((uint8_t) str.size(), buffer, next_index);
+    for (size_t i = 0; i < str.size(); i++) {
+        put_uint_into_buffer<uint8_t>((uint8_t) str[i], buffer, next_index);
+    }
+}
+
+static void put_players_into_buffer(ClientData &data, uint8_t *buffer, size_t &next_index) {
+    put_uint_into_buffer<uint32_t>(htonl((uint32_t) data.players.size()), buffer, next_index);
+    for (const auto &player : data.players) {
+        put_uint_into_buffer<PlayerId>(player.first, buffer, next_index);
+        put_string_into_buffer(player.second.name, buffer, next_index);
+        put_string_into_buffer(player.second.address, buffer, next_index);
+    }
+}
+
+static void put_position_into_buffer(const Position &position, uint8_t *buffer, size_t &next_index) {
+    put_uint_into_buffer<uint16_t>(position.x, buffer, next_index);
+    put_uint_into_buffer<uint16_t>(position.y, buffer, next_index);
+}
+
+static void put_player_positions_into_buffer(ClientData &data, uint8_t *buffer, size_t &next_index) {
+    put_uint_into_buffer<uint32_t>(htonl((uint32_t) data.player_positions.size()), buffer, next_index);
+    for (const auto &player_position : data.player_positions) {
+        put_uint_into_buffer<PlayerId>(player_position.first, buffer, next_index);
+        put_position_into_buffer(player_position.second, buffer, next_index);
+    }
+}
+
+static void put_blocks_into_buffer(ClientData &data, uint8_t *buffer, size_t &next_index) {
+    put_uint_into_buffer<uint32_t>(htonl((uint32_t) data.blocks.size()), buffer, next_index);
+    for (const Position &block_position : data.blocks) {
+        put_position_into_buffer(block_position, buffer, next_index);
+    }
+}
+
+static void put_bombs_into_buffer(ClientData &data, uint8_t *buffer, size_t &next_index) {
+    put_uint_into_buffer<uint32_t>(htonl((uint32_t) data.bombs.size()), buffer, next_index);
+    for (const auto &bomb : data.bombs) {
+        put_position_into_buffer(bomb.second.position, buffer, next_index);
+        put_uint_into_buffer<uint16_t>(htons(bomb.second.timer), buffer, next_index);
+    }
+}
+
+static void put_explosions_into_buffer(ClientData &data, uint8_t *buffer, size_t &next_index) {
+    put_uint_into_buffer<uint32_t>(htonl((uint32_t) data.explosions.size()), buffer, next_index);
+    for (const Position &explosion_position : data.explosions) {
+        put_position_into_buffer(explosion_position, buffer, next_index);
+    }
+}
+
+static void put_scores_into_buffer(ClientData &data, uint8_t *buffer, size_t &next_index) {
+    put_uint_into_buffer<uint32_t>(htonl((uint32_t) data.scores.size()), buffer, next_index);
+    for (const auto &score : data.scores) {
+        put_uint_into_buffer<PlayerId>(score.first, buffer, next_index);
+        put_uint_into_buffer<Score>(htonl(score.second), buffer, next_index);
+    }
+}
+
+static void send_lobby(ClientData &data) {
+    uint8_t buffer[DATAGRAM_LIMIT];
+    size_t next_index = 0;
+
+    put_uint_into_buffer<uint8_t>(0, buffer, next_index);
+    put_string_into_buffer(data.server_name, buffer, next_index);
+    put_uint_into_buffer<uint8_t>(data.players_count, buffer, next_index);
+    put_uint_into_buffer<uint16_t>(data.size_x, buffer, next_index);
+    put_uint_into_buffer<uint16_t>(data.size_y, buffer, next_index);
+    put_uint_into_buffer<uint16_t>(data.game_length, buffer, next_index);
+    put_uint_into_buffer<uint16_t>(data.explosion_radius, buffer, next_index);
+    put_uint_into_buffer<uint16_t>(data.bomb_timer, buffer, next_index);
+    put_players_into_buffer(data, buffer, next_index);
+    put_player_positions_into_buffer(data, buffer, next_index);
+    put_blocks_into_buffer(data, buffer, next_index);
+    put_bombs_into_buffer(data, buffer, next_index);
+    put_explosions_into_buffer(data, buffer, next_index);
+    put_scores_into_buffer(data, buffer, next_index);
+
+    send_message(data.gui_send_fd, buffer, next_index, 0);
+}
+
+static void send_game(ClientData &data) {
+    uint8_t buffer[DATAGRAM_LIMIT];
+    size_t next_index = 0;
+
+    put_string_into_buffer(data.server_name, buffer, next_index);
+    put_uint_into_buffer<uint16_t>(data.size_x, buffer, next_index);
+    put_uint_into_buffer<uint16_t>(data.size_y, buffer, next_index);
+    put_uint_into_buffer<uint16_t>(data.game_length, buffer, next_index);
+    put_uint_into_buffer<uint16_t>(data.turn, buffer, next_index);
+    put_players_into_buffer(data, buffer, next_index);
+}
+
+void send_message_to_gui(ClientData &data) {
+    ENSURE(pthread_mutex_lock(&data.lock) == 0);
+    if (data.is_in_lobby) {
+        send_lobby(data);
+    }
+    else {
+        send_game(data);
+    }
+    ENSURE(pthread_mutex_unlock(&data.lock) == 0);
 }

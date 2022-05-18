@@ -58,7 +58,7 @@ void start_connection_with_server() {
 [[noreturn]] void from_server_to_gui() {
     while (true) {
         if (read_message_from_server(data)) {
-            //send_message_to_gui(data);
+            send_message_to_gui(data);
         }
     }
 }
