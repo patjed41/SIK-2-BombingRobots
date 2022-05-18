@@ -2,6 +2,7 @@
 #define ROBOTSCLIENT_CLIENT_DATA_H
 
 #include <pthread.h>
+#include <set>
 
 #include "../types.h"
 
@@ -18,8 +19,10 @@ struct ClientData {
     Map<PlayerId, Player> players;
     Map<PlayerId, Position> player_positions;
     List<Position> blocks;
+    Map<BombId, Bomb> bombs; // Bomb.timer - host order
     List<Position> explosions;
-    Map<PlayerId, Score> scores;
+    Map<PlayerId, Score> scores; // Score - host order
+    std::set<PlayerId> died_this_round;
 
     int server_fd;
     int gui_rec_fd;

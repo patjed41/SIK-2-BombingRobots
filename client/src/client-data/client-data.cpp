@@ -13,8 +13,10 @@ void clear(ClientData* data) {
     data->players.clear();
     data->player_positions.clear();
     data->blocks.clear();
+    data->bombs.clear();
     data->explosions.clear();
     data->scores.clear();
+    data->died_this_round.clear();
 }
 
 void destroy(ClientData* data) {

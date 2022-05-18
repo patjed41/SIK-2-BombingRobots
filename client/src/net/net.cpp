@@ -9,7 +9,6 @@
 #include <unistd.h>
 #include <netinet/tcp.h>
 
-
 int open_socket(bool is_ipv4, bool is_tcp) {
     int domain = is_ipv4 ? PF_INET : PF_INET6;
     int type = is_tcp ? SOCK_STREAM : SOCK_DGRAM;
@@ -99,5 +98,3 @@ void send_message(int socket_fd, const void *message, size_t length, int flags) 
     }
     ENSURE(sent_length == (ssize_t) length);
 }
-
-

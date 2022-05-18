@@ -1,7 +1,7 @@
 #include "client_parameters.h"
 #include "../err.h"
 
-#include <string.h>
+#include <cstring>
 #include <iostream>
 #include <arpa/inet.h>
 

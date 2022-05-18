@@ -48,11 +48,19 @@ void start_connection_with_server() {
     read_hello(data);
 }
 
-void *from_gui_to_server([[maybe_unused]] void *thread_data) {
-    uint8_t message_type = read_message_from_gui(data);
-    send_message_to_server(data, message_type);
+[[noreturn]] void *from_gui_to_server([[maybe_unused]] void *thread_data) {
+    while (true) {
+        uint8_t message_type = read_message_from_gui(data);
+        send_message_to_server(data, message_type);
+    }
+}
 
-    return 0;
+[[noreturn]] void from_server_to_gui() {
+    while (true) {
+        if (read_message_from_server(data)) {
+            //send_message_to_gui(data);
+        }
+    }
 }
 
 int main(int argc, char *argv[]) {
@@ -65,7 +73,7 @@ int main(int argc, char *argv[]) {
                                from_gui_to_server, nullptr));
     CHECK_ERRNO(pthread_detach(from_gui_to_server_thread));
 
-    while (true) {}
+    from_server_to_gui();
 
     finish_connections();
 }

@@ -21,6 +21,10 @@ struct Position {
     uint16_t y;
 };
 
+inline bool operator==(const Position &p1, const Position &p2) {
+    return p1.x == p2.x && p1.y == p2.y;
+}
+
 using BombId = uint32_t;
 
 struct Bomb {
