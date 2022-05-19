@@ -8,6 +8,7 @@
 #include <sys/socket.h>
 #include <unistd.h>
 #include <netinet/tcp.h>
+#include <iostream>
 
 int open_socket(bool is_ipv4, bool is_tcp) {
     int domain = is_ipv4 ? PF_INET : PF_INET6;
@@ -97,4 +98,37 @@ void send_message(int socket_fd, const void *message, size_t length, int flags) 
         PRINT_ERRNO();
     }
     ENSURE(sent_length == (ssize_t) length);
+}
+
+int connect_to(const std::string &host, uint16_t port, bool tcp) {
+    struct addrinfo hints{};
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_socktype = tcp ? SOCK_STREAM : SOCK_DGRAM;
+    hints.ai_flags = 0;
+    hints.ai_protocol = tcp ? IPPROTO_TCP : IPPROTO_UDP;          /* Any protocol */
+
+    struct addrinfo *result, *next;
+    int server_fd = -1;
+
+    if (getaddrinfo(host.c_str(), std::to_string((int) port).c_str(), &hints, &result) != 0) {
+        return -1;
+    }
+
+    for (next = result; next != nullptr; next = next->ai_next) {
+        server_fd = socket(next->ai_family, next->ai_socktype, next->ai_protocol);
+        if (server_fd == -1) {
+            continue;
+        }
+
+        if (connect(server_fd, next->ai_addr, next->ai_addrlen) != -1) {
+            break;
+        }
+
+        close(server_fd);
+    }
+
+    freeaddrinfo(result);
+
+    return server_fd;
 }

@@ -16,20 +16,29 @@ void initiate_connections(ClientParameters parameters) {
               << "\nserver: " << parameters.server_address << ", " << parameters.server_port
               << "\n";
 
-    if (!is_address_ipv4(parameters.server_address) && !is_address_ipv6(parameters.server_address)) {
+    /*if (!is_address_ipv4(parameters.server_address) && !is_address_ipv6(parameters.server_address)) {
         fatal("Incorrect server address %s.", parameters.server_address.c_str());
     }
     data.server_fd = open_socket(is_address_ipv4(parameters.server_address), true);
     connect_socket(data.server_fd, parameters.server_address, parameters.server_port);
-    turn_off_nagle(data.server_fd);
+    turn_off_nagle(data.server_fd);*/
+
+    data.server_fd = connect_to(parameters.server_address, parameters.server_port, true);
+    if (data.server_fd == -1) {
+        fatal("Could not connect to server %s:%d", parameters.server_address.c_str(), parameters.server_port);
+    }
 
     if (!is_address_ipv4(parameters.gui_address) && !is_address_ipv6(parameters.gui_address)) {
         fatal("Incorrect gui address %s.", parameters.gui_address.c_str());
     }
     data.gui_rec_fd = open_socket(is_address_ipv4(parameters.gui_address), false);
     bind_socket(data.gui_rec_fd, parameters.port, is_address_ipv4(parameters.gui_address));
-    data.gui_send_fd = open_socket(is_address_ipv4(parameters.gui_address), false);
-    connect_socket(data.gui_send_fd, parameters.gui_address, parameters.gui_port);
+    /*data.gui_send_fd = open_socket(is_address_ipv4(parameters.gui_address), false);
+    connect_socket(data.gui_send_fd, parameters.gui_address, parameters.gui_port);*/
+    data.gui_send_fd = connect_to(parameters.gui_address, parameters.gui_port, false);
+    if (data.gui_send_fd == -1) {
+        fatal("Could not connect to GUI %s:%d", parameters.gui_address.c_str(), parameters.gui_port);
+    }
 
     init(&data);
 }
@@ -44,9 +53,6 @@ void finish_connections() {
     exit(0);
 }
 
-void start_connection_with_server() {
-    read_hello(data);
-}
 
 [[noreturn]] void *from_gui_to_server([[maybe_unused]] void *thread_data) {
     while (true) {
@@ -65,8 +71,7 @@ void start_connection_with_server() {
 
 int main(int argc, char *argv[]) {
     initiate_connections(read_parameters(argc, argv));
-
-    start_connection_with_server();
+    read_hello(data);
 
     pthread_t from_gui_to_server_thread;
     CHECK_ERRNO(pthread_create(&from_gui_to_server_thread, nullptr,

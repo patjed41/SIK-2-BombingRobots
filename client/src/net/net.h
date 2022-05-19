@@ -24,4 +24,6 @@ size_t receive_message(int socket_fd, void *buffer, size_t max_length, int flags
 
 void send_message(int socket_fd, const void *message, size_t length, int flags);
 
+int connect_to(const std::string &host, uint16_t port, bool tcp);
+
 #endif //NET_H

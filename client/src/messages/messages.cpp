@@ -3,7 +3,6 @@
 #include "../err.h"
 
 #include <iostream>
-#include <algorithm>
 
 #define DATAGRAM_LIMIT 65507
 #define GUI_WRONG_MSG 10
@@ -45,6 +44,7 @@ void read_hello(ClientData &data) {
 uint8_t read_message_from_gui(ClientData &data) {
     uint8_t buffer[2];
     size_t read_length = receive_message(data.gui_rec_fd, buffer, 2, 0);
+    std::cout << (int) buffer[0] << std::endl;
     if (!(read_length == 1 && buffer[0] < 2) && !(read_length == 2 && buffer[1] < 4)) {
         return GUI_WRONG_MSG;
     }
@@ -149,7 +149,7 @@ static void read_game_ended(ClientData &data) {
 static void read_bomb_placed(ClientData &data) {
     BombId bomb_id = read_bomb_id(data.server_fd);
     Position position = read_position(data.server_fd);
-    Bomb bomb = (Bomb) { bomb.position = position, bomb.timer = ntohs(data.bomb_timer) };
+    Bomb bomb = (Bomb) { .position = position, .timer = ntohs(data.bomb_timer) };
     data.bombs[bomb_id] = bomb;
 }
 
@@ -222,33 +222,34 @@ static void read_turn(ClientData &data) {
 
 bool read_message_from_server(ClientData &data) {
     uint8_t message_type = read_uint<uint8_t>(data.server_fd);
+    std::cout << "serv:" << (int) message_type << std::endl;
     ENSURE(message_type > 0 && message_type < 5);
 
     ENSURE(pthread_mutex_lock(&data.lock) == 0);
 
-    bool result = false;
+    bool message_to_gui = false;
 
     switch (message_type) {
         case 1:
             read_accepted_player(data);
-            result = true;
+            message_to_gui = true;
             break;
         case 2:
             read_game_started(data);
-            result = false;
+            message_to_gui = false;
             break;
         case 3:
             read_turn(data);
-            result = true;
+            message_to_gui = true;
             break;
         case 4:
             read_game_ended(data);
-            result = false;
+            message_to_gui = false;
             break;
     }
 
     ENSURE(pthread_mutex_unlock(&data.lock) == 0);
-    return result;
+    return message_to_gui;
 }
 
 template<class T>
