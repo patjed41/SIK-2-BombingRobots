@@ -54,7 +54,7 @@ void connect_socket(int socket_fd, std::string &host, uint16_t port) {
     }
     else {
         struct sockaddr_in6 address{};
-        address.sin6_family = AF_INET6;
+        address.sin6_family = AF_UNSPEC;
         address.sin6_flowinfo = 0;
         ENSURE(inet_pton(AF_INET6, host.c_str(), &address.sin6_addr) == 1);
         address.sin6_port = htons(port);

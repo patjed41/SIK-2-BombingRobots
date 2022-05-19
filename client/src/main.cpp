@@ -9,12 +9,14 @@
 
 ClientData data;
 
-void initiate_connections(ClientParameters parameters) {
+void initiate_connections(const ClientParameters &parameters) {
     std::cout << "gui: " << parameters.gui_address << ", " << parameters.gui_port
               << "\nplayer name: " << parameters.player_name
               << "\nport: " << parameters.port
               << "\nserver: " << parameters.server_address << ", " << parameters.server_port
               << "\n";
+
+    data.player_name = parameters.player_name;
 
     /*if (!is_address_ipv4(parameters.server_address) && !is_address_ipv6(parameters.server_address)) {
         fatal("Incorrect server address %s.", parameters.server_address.c_str());
@@ -72,6 +74,7 @@ void finish_connections() {
 int main(int argc, char *argv[]) {
     initiate_connections(read_parameters(argc, argv));
     read_hello(data);
+    send_message_to_server(data, 0);
 
     pthread_t from_gui_to_server_thread;
     CHECK_ERRNO(pthread_create(&from_gui_to_server_thread, nullptr,

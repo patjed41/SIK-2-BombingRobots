@@ -8,6 +8,7 @@
 
 struct ClientData {
     bool is_in_lobby;
+    std::string player_name;
     std::string server_name;
     uint8_t players_count;
     uint16_t size_x;

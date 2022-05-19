@@ -9,6 +9,7 @@
 
 template<class T>
 static T read_uint(int socket_fd) {
+    std::cout << "uint fd: " << socket_fd << std::endl;
     T value;
     size_t read_length = receive_message(socket_fd, &value, sizeof(T), MSG_WAITALL);
     ENSURE(read_length == sizeof(T));
@@ -27,6 +28,14 @@ static std::string read_string(int socket_fd) {
     ENSURE(read_length == string_length);
     buffer[string_length] = '\0';
     return std::string(buffer);
+}
+
+static void send_join(ClientData &data) {
+    uint8_t buffer[data.player_name.size() + 2];
+    buffer[0] = 0;
+    buffer[1] = (uint8_t) data.player_name.size();
+    memcpy(buffer + 2, data.player_name.c_str(), data.player_name.size());
+    send_message(data.server_fd, buffer, sizeof(buffer), 0);
 }
 
 void read_hello(ClientData &data) {
@@ -71,7 +80,8 @@ void send_message_to_server(ClientData &data, uint8_t message_type) {
     ENSURE(pthread_mutex_unlock(&data.lock) == 0);
 
     if (in_lobby) {
-        send_uint<uint8_t>(data.server_fd, 0);
+        std::cout << "join\n";
+        send_join(data);
     }
     else if (message_type < 2) {
         send_uint<uint8_t>(data.server_fd, message_type + 1);
@@ -221,6 +231,7 @@ static void read_turn(ClientData &data) {
 }
 
 bool read_message_from_server(ClientData &data) {
+    std::cout << "server fd: " << data.server_fd << std::endl;
     uint8_t message_type = read_uint<uint8_t>(data.server_fd);
     std::cout << "serv:" << (int) message_type << std::endl;
     ENSURE(message_type > 0 && message_type < 5);
