@@ -9,7 +9,6 @@
 
 template<class T>
 static T read_uint(int socket_fd) {
-    std::cout << "uint fd: " << socket_fd << std::endl;
     T value;
     size_t read_length = receive_message(socket_fd, &value, sizeof(T), MSG_WAITALL);
     ENSURE(read_length == sizeof(T));
@@ -53,7 +52,7 @@ void read_hello(ClientData &data) {
 uint8_t read_message_from_gui(ClientData &data) {
     uint8_t buffer[2];
     size_t read_length = receive_message(data.gui_rec_fd, buffer, 2, 0);
-    std::cout << (int) buffer[0] << std::endl;
+    //std::cout << "read from gui " << (int) buffer[0] << std::endl;
     if (!(read_length == 1 && buffer[0] < 2) && !(read_length == 2 && buffer[1] < 4)) {
         return GUI_WRONG_MSG;
     }
@@ -75,20 +74,23 @@ void send_message_to_server(ClientData &data, uint8_t message_type) {
         return;
     }
 
+    std::cout << "send to server: " << (int) message_type << std::endl;
+
     ENSURE(pthread_mutex_lock(&data.lock) == 0);
     bool in_lobby = data.is_in_lobby;
     ENSURE(pthread_mutex_unlock(&data.lock) == 0);
 
     if (in_lobby) {
-        std::cout << "join\n";
         send_join(data);
     }
     else if (message_type < 2) {
         send_uint<uint8_t>(data.server_fd, message_type + 1);
     }
     else {
-        send_uint<uint8_t>(data.server_fd, 3);
-        send_uint<uint8_t>(data.server_fd, message_type - 2);
+        uint8_t buffer[2];
+        buffer[0] = 3;
+        buffer[1] = message_type - 2;
+        send_message(data.server_fd, buffer, 2, 0);
     }
 }
 
@@ -125,7 +127,6 @@ static void read_accepted_player(ClientData &data) {
 }
 
 static void read_game_started(ClientData &data) {
-    data.players_count = 0;
     data.players.clear();
 
     u_int32_t map_length = ntohl(read_uint<uint32_t>(data.server_fd));
@@ -133,6 +134,11 @@ static void read_game_started(ClientData &data) {
         PlayerId player_id = read_player_id(data.server_fd);
         Player player = read_player(data.server_fd);
         data.players[player_id] = player;
+    }
+
+    data.scores.clear();
+    for (const auto &player : data.players) {
+        data.scores[player.first] = 0;
     }
 
     data.is_in_lobby = false;
@@ -231,9 +237,8 @@ static void read_turn(ClientData &data) {
 }
 
 bool read_message_from_server(ClientData &data) {
-    std::cout << "server fd: " << data.server_fd << std::endl;
     uint8_t message_type = read_uint<uint8_t>(data.server_fd);
-    std::cout << "serv:" << (int) message_type << std::endl;
+    //std::cout << "read from server: " << (int) message_type << std::endl;
     ENSURE(message_type > 0 && message_type < 5);
 
     ENSURE(pthread_mutex_lock(&data.lock) == 0);
@@ -255,7 +260,7 @@ bool read_message_from_server(ClientData &data) {
             break;
         case 4:
             read_game_ended(data);
-            message_to_gui = false;
+            message_to_gui = true;
             break;
     }
 
@@ -341,6 +346,21 @@ static void send_lobby(ClientData &data) {
     put_uint_into_buffer<uint16_t>(data.explosion_radius, buffer, next_index);
     put_uint_into_buffer<uint16_t>(data.bomb_timer, buffer, next_index);
     put_players_into_buffer(data, buffer, next_index);
+
+    send_message(data.gui_send_fd, buffer, next_index, 0);
+}
+
+static void send_game(ClientData &data) {
+    uint8_t buffer[DATAGRAM_LIMIT];
+    size_t next_index = 0;
+
+    put_uint_into_buffer<uint8_t>(1, buffer, next_index);
+    put_string_into_buffer(data.server_name, buffer, next_index);
+    put_uint_into_buffer<uint16_t>(data.size_x, buffer, next_index);
+    put_uint_into_buffer<uint16_t>(data.size_y, buffer, next_index);
+    put_uint_into_buffer<uint16_t>(data.game_length, buffer, next_index);
+    put_uint_into_buffer<uint16_t>(data.turn, buffer, next_index);
+    put_players_into_buffer(data, buffer, next_index);
     put_player_positions_into_buffer(data, buffer, next_index);
     put_blocks_into_buffer(data, buffer, next_index);
     put_bombs_into_buffer(data, buffer, next_index);
@@ -350,20 +370,9 @@ static void send_lobby(ClientData &data) {
     send_message(data.gui_send_fd, buffer, next_index, 0);
 }
 
-static void send_game(ClientData &data) {
-    uint8_t buffer[DATAGRAM_LIMIT];
-    size_t next_index = 0;
-
-    put_string_into_buffer(data.server_name, buffer, next_index);
-    put_uint_into_buffer<uint16_t>(data.size_x, buffer, next_index);
-    put_uint_into_buffer<uint16_t>(data.size_y, buffer, next_index);
-    put_uint_into_buffer<uint16_t>(data.game_length, buffer, next_index);
-    put_uint_into_buffer<uint16_t>(data.turn, buffer, next_index);
-    put_players_into_buffer(data, buffer, next_index);
-}
-
 void send_message_to_gui(ClientData &data) {
     ENSURE(pthread_mutex_lock(&data.lock) == 0);
+    //std::cout << "send to gui: " << 1 - data.is_in_lobby << std::endl;
     if (data.is_in_lobby) {
         send_lobby(data);
     }

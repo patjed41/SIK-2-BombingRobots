@@ -42,6 +42,8 @@ void initiate_connections(const ClientParameters &parameters) {
         fatal("Could not connect to GUI %s:%d", parameters.gui_address.c_str(), parameters.gui_port);
     }
 
+    turn_off_nagle(data.server_fd);
+
     init(&data);
 }
 
@@ -74,7 +76,6 @@ void finish_connections() {
 int main(int argc, char *argv[]) {
     initiate_connections(read_parameters(argc, argv));
     read_hello(data);
-    send_message_to_server(data, 0);
 
     pthread_t from_gui_to_server_thread;
     CHECK_ERRNO(pthread_create(&from_gui_to_server_thread, nullptr,
