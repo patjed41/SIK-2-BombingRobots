@@ -106,29 +106,70 @@ int connect_to(const std::string &host, uint16_t port, bool tcp) {
     hints.ai_family = AF_UNSPEC;
     hints.ai_socktype = tcp ? SOCK_STREAM : SOCK_DGRAM;
     hints.ai_flags = 0;
-    hints.ai_protocol = tcp ? IPPROTO_TCP : IPPROTO_UDP;          /* Any protocol */
+    hints.ai_protocol = tcp ? IPPROTO_TCP : IPPROTO_UDP;
 
     struct addrinfo *result, *next;
-    int server_fd = -1;
+    int socket_fd;
 
     if (getaddrinfo(host.c_str(), std::to_string((int) port).c_str(), &hints, &result) != 0) {
         return -1;
     }
 
     for (next = result; next != nullptr; next = next->ai_next) {
-        server_fd = socket(next->ai_family, next->ai_socktype, next->ai_protocol);
-        if (server_fd == -1) {
+        socket_fd = socket(next->ai_family, next->ai_socktype, next->ai_protocol);
+        if (socket_fd == -1) {
             continue;
         }
 
-        if (connect(server_fd, next->ai_addr, next->ai_addrlen) != -1) {
+        if (connect(socket_fd, next->ai_addr, next->ai_addrlen) != -1) {
             break;
         }
 
-        close(server_fd);
+        close(socket_fd);
     }
 
     freeaddrinfo(result);
 
-    return server_fd;
+    if (next == nullptr) {
+        return -1;
+    }
+
+    return socket_fd;
+}
+
+int bind_udp_socket(uint16_t port) {
+    struct addrinfo hints{};
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_INET6;
+    hints.ai_socktype = SOCK_DGRAM;
+    hints.ai_flags = 0;
+    hints.ai_protocol = IPPROTO_UDP;
+
+    struct addrinfo *result, *next;
+    int socket_fd;
+
+    if (getaddrinfo(nullptr, std::to_string((int) port).c_str(), &hints, &result) != 0) {
+        fatal("Could not bind UDP socket to port %d.", port);
+    }
+
+    for (next = result; next != nullptr; next = next->ai_next) {
+        socket_fd = socket(next->ai_family, next->ai_socktype, next->ai_protocol);
+        if (socket_fd == -1) {
+            continue;
+        }
+
+        if (bind(socket_fd, next->ai_addr, next->ai_addrlen) == 0) {
+            break;
+        }
+
+        close(socket_fd);
+    }
+
+    freeaddrinfo(result);
+
+    if (next == nullptr) {
+        fatal("Could not bind UDP socket to port %d.", port);
+    }
+
+    return socket_fd;
 }

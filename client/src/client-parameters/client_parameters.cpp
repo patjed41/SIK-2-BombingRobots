@@ -5,9 +5,10 @@
 #include <iostream>
 #include <arpa/inet.h>
 
-#define MIN_PORT 1
 #define MAX_PORT 65535
+#define MAX_STRING_LEN 256
 
+// Returns true if "-h" parameter appeared.
 static bool help_needed(int argc, char *argv[]) {
     for (int i = 0; i < argc; i++) {
         if (strcmp(argv[i], "-h") == 0) {
@@ -31,15 +32,18 @@ static void print_help() {
               << "    -s <server_address:server_port>\n";
 }
 
+// Checks if port represented by [port_str] is correct.
 static bool check_port(const char *port_str) {
     errno = 0;
 
     char *end_ptr;
-    uint32_t value = (uint32_t)strtoul(port_str, &end_ptr, 10);
+    auto value = (uint32_t) strtoul(port_str, &end_ptr, 10);
 
-    return *end_ptr == '\0' && errno == 0 && value >= MIN_PORT && value <= MAX_PORT;
+    return *end_ptr == '\0' && errno == 0 && value <= MAX_PORT;
 }
 
+// Reads ip address in (address):(port) format. Returns false if address
+// is incorrect. Puts result in [address] and [port] references.
 static bool read_address(const char *address_and_port, std::string &address, uint16_t &port) {
     address.clear();
 
@@ -64,11 +68,13 @@ static bool read_address(const char *address_and_port, std::string &address, uin
     if (!check_port(port_str.c_str())) {
         return false;
     }
-    port = (uint16_t)atoi(port_str.c_str());
+    port = (uint16_t) strtol(port_str.c_str(), nullptr, 10);
 
     return true;
 }
 
+// Processes a single parameter [option] with value [value]. Changes
+// [parameters] reference.
 static void read_parameter(ClientParameters &parameters, const char *option, const char *value) {
     if (strcmp(option, "-d") == 0) {
         if (!read_address(value, parameters.gui_address, parameters.gui_port)) {
@@ -77,12 +83,16 @@ static void read_parameter(ClientParameters &parameters, const char *option, con
     }
     else if (strcmp(option, "-n") == 0) {
         parameters.player_name = std::string(value);
+        if (parameters.player_name.length() > MAX_STRING_LEN) {
+            fatal("Name cannot contain more that 256 characters.");
+        }
     }
     else if (strcmp(option, "-p") == 0) {
         if (!check_port(value)) {
-            fatal("Incorrect port %s, available values: 1-65535.", value);
+            fatal("Incorrect port %s, available values: 0-65535.", value);
         }
-        parameters.port = (uint16_t)atoi(value);
+        parameters.port = (uint16_t) strtol(value, nullptr, 10);
+        parameters.read_port = true;
     }
     else if (strcmp(option, "-s") == 0) {
         if (!read_address(value, parameters.server_address, parameters.server_port)) {
@@ -90,10 +100,11 @@ static void read_parameter(ClientParameters &parameters, const char *option, con
         }
     }
     else {
-        fatal("Incorrect parameter %s", option);
+        fatal("Incorrect parameter %s.", option);
     }
 }
 
+// Checks if all necessary parameters appeared.
 static void ensure_every_parameter_read(const ClientParameters &parameters) {
     if (parameters.gui_address.empty()) {
         fatal("-d parameter is necessary.");
@@ -101,7 +112,7 @@ static void ensure_every_parameter_read(const ClientParameters &parameters) {
     if (parameters.player_name.empty()) {
         fatal("-n parameter is necessary.");
     }
-    if (parameters.port == 0) {
+    if (!parameters.read_port) {
         fatal("-p parameter is necessary.");
     }
     if (parameters.server_address.empty()) {
@@ -116,7 +127,7 @@ ClientParameters read_parameters(int argc, char *argv[]) {
     }
 
     if (argc % 2 == 0) {
-        fatal("Every option must have value.");
+        fatal("Every parameter must have value.");
     }
 
     ClientParameters parameters;

@@ -21,7 +21,7 @@ static void send_uint(int socket_fd, T value) {
 }
 
 static std::string read_string(int socket_fd) {
-    uint8_t string_length = read_uint<uint8_t>(socket_fd);
+    auto string_length = read_uint<uint8_t>(socket_fd);
     char buffer[string_length + 1];
     size_t read_length = receive_message(socket_fd, &buffer, string_length, MSG_WAITALL);
     ENSURE(read_length == string_length);
@@ -52,7 +52,6 @@ void read_hello(ClientData &data) {
 uint8_t read_message_from_gui(ClientData &data) {
     uint8_t buffer[2];
     size_t read_length = receive_message(data.gui_rec_fd, buffer, 2, 0);
-    //std::cout << "read from gui " << (int) buffer[0] << std::endl;
     if (!(read_length == 1 && buffer[0] < 2) && !(read_length == 2 && buffer[1] < 4)) {
         return GUI_WRONG_MSG;
     }
@@ -74,19 +73,17 @@ void send_message_to_server(ClientData &data, uint8_t message_type) {
         return;
     }
 
-    std::cout << "send to server: " << (int) message_type << std::endl;
-
     ENSURE(pthread_mutex_lock(&data.lock) == 0);
     bool in_lobby = data.is_in_lobby;
     ENSURE(pthread_mutex_unlock(&data.lock) == 0);
 
-    if (in_lobby) {
+    if (in_lobby) { // Join
         send_join(data);
     }
-    else if (message_type < 2) {
+    else if (message_type < 2) { // PlaceBomb or PlaceBlock
         send_uint<uint8_t>(data.server_fd, message_type + 1);
     }
-    else {
+    else { // Move
         uint8_t buffer[2];
         buffer[0] = 3;
         buffer[1] = message_type - 2;
@@ -107,7 +104,7 @@ static BombId read_bomb_id(int socket_fd) {
 }
 
 static Position read_position(int socket_fd) {
-    Position position;
+    Position position{};
     position.x = read_uint<uint16_t>(socket_fd);
     position.y = read_uint<uint16_t>(socket_fd);
     return position;
@@ -159,7 +156,7 @@ static void read_game_ended(ClientData &data) {
         fatal("Incorrect score in client.");
     }
 
-    clear(&data);
+    data.clear();
 }
 
 static void read_bomb_placed(ClientData &data) {
@@ -199,7 +196,7 @@ static void read_block_placed(ClientData &data) {
 }
 
 static void read_event(ClientData &data) {
-    u_int8_t event_type = read_uint<uint8_t>(data.server_fd);
+    auto event_type = read_uint<uint8_t>(data.server_fd);
     ENSURE(event_type < 4);
 
     switch (event_type) {
@@ -214,6 +211,8 @@ static void read_event(ClientData &data) {
             break;
         case 3:
             read_block_placed(data);
+            break;
+        default:
             break;
     }
 }
@@ -236,36 +235,30 @@ static void read_turn(ClientData &data) {
     }
 }
 
-bool read_message_from_server(ClientData &data) {
-    uint8_t message_type = read_uint<uint8_t>(data.server_fd);
-    //std::cout << "read from server: " << (int) message_type << std::endl;
+void read_message_from_server(ClientData &data) {
+    auto message_type = read_uint<uint8_t>(data.server_fd);
     ENSURE(message_type > 0 && message_type < 5);
 
     ENSURE(pthread_mutex_lock(&data.lock) == 0);
 
-    bool message_to_gui = false;
-
     switch (message_type) {
         case 1:
             read_accepted_player(data);
-            message_to_gui = true;
             break;
         case 2:
             read_game_started(data);
-            message_to_gui = false;
             break;
         case 3:
             read_turn(data);
-            message_to_gui = true;
             break;
         case 4:
             read_game_ended(data);
-            message_to_gui = true;
+            break;
+        default:
             break;
     }
 
     ENSURE(pthread_mutex_unlock(&data.lock) == 0);
-    return message_to_gui;
 }
 
 template<class T>
@@ -276,8 +269,8 @@ void put_uint_into_buffer(T value, uint8_t *buffer, size_t &next_index) {
 
 void put_string_into_buffer(const std::string &str, uint8_t *buffer, size_t &next_index) {
     put_uint_into_buffer<uint8_t>((uint8_t) str.size(), buffer, next_index);
-    for (size_t i = 0; i < str.size(); i++) {
-        put_uint_into_buffer<uint8_t>((uint8_t) str[i], buffer, next_index);
+    for (char i : str) {
+        put_uint_into_buffer<uint8_t>((uint8_t) i, buffer, next_index);
     }
 }
 
@@ -333,6 +326,13 @@ static void put_scores_into_buffer(ClientData &data, uint8_t *buffer, size_t &ne
     }
 }
 
+static void send_to_gui(int gui_send_fd, const uint8_t *buffer, size_t length) {
+    ssize_t sent_length = send(gui_send_fd, buffer, length, 0);
+    if (sent_length != (ssize_t) length) {
+        fatal("Connection with GUI refused.");
+    }
+}
+
 static void send_lobby(ClientData &data) {
     uint8_t buffer[DATAGRAM_LIMIT];
     size_t next_index = 0;
@@ -347,7 +347,7 @@ static void send_lobby(ClientData &data) {
     put_uint_into_buffer<uint16_t>(data.bomb_timer, buffer, next_index);
     put_players_into_buffer(data, buffer, next_index);
 
-    send_message(data.gui_send_fd, buffer, next_index, 0);
+    send_to_gui(data.gui_send_fd, buffer, next_index);
 }
 
 static void send_game(ClientData &data) {
@@ -367,17 +367,18 @@ static void send_game(ClientData &data) {
     put_explosions_into_buffer(data, buffer, next_index);
     put_scores_into_buffer(data, buffer, next_index);
 
-    send_message(data.gui_send_fd, buffer, next_index, 0);
+    send_to_gui(data.gui_send_fd, buffer, next_index);
 }
 
 void send_message_to_gui(ClientData &data) {
     ENSURE(pthread_mutex_lock(&data.lock) == 0);
-    //std::cout << "send to gui: " << 1 - data.is_in_lobby << std::endl;
+
     if (data.is_in_lobby) {
         send_lobby(data);
     }
     else {
         send_game(data);
     }
+
     ENSURE(pthread_mutex_unlock(&data.lock) == 0);
 }

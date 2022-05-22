@@ -1,11 +1,12 @@
-#ifndef ROBOTSCLIENT_CLIENT_DATA_H
-#define ROBOTSCLIENT_CLIENT_DATA_H
+#ifndef CLIENT_DATA_H
+#define CLIENT_DATA_H
 
 #include <pthread.h>
 #include <set>
 
-#include "../types.h"
+#include "types.h"
 
+// Structure containing the data required by client.
 struct ClientData {
     bool is_in_lobby;
     std::string player_name;
@@ -25,17 +26,18 @@ struct ClientData {
     Map<PlayerId, Score> scores; // Score - host order
     std::set<PlayerId> died_this_round;
 
+    // Socket descriptors.
     int server_fd;
     int gui_rec_fd;
     int gui_send_fd;
 
     pthread_mutex_t lock;
+
+    // Initiates new ClientData instance.
+    void init();
+
+    // Clears ClientData instance after finished game.
+    void clear();
 };
 
-void init(ClientData* data);
-
-void clear(ClientData* data);
-
-void destroy(ClientData* data);
-
-#endif //ROBOTSCLIENT_CLIENT_DATA_H
+#endif // CLIENT_DATA_H

@@ -1,10 +1,12 @@
-#ifndef ROBOTSCLIENT_TYPES_H
-#define ROBOTSCLIENT_TYPES_H
+#ifndef TYPES_H
+#define TYPES_H
 
 #include <string>
 #include <cstdint>
 #include <map>
 #include <vector>
+
+// Definitions of some types used by client.
 
 template<class T> using List = std::vector<T>;
 template<class K, class V> using Map = std::map<K, V>;
@@ -34,4 +36,4 @@ struct Bomb {
 
 using Score = uint32_t;
 
-#endif //ROBOTSCLIENT_TYPES_H
+#endif // TYPES_H

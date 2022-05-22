@@ -8,16 +8,6 @@
 #include <errno.h>
 #include <string.h>
 
-#define CHECK(x)                                                          \
-    do {                                                                  \
-        int err = (x);                                                    \
-        if (err != 0) {                                                   \
-            fprintf(stderr, "Error: %s returned %d in %s at %s:%d\n%s\n", \
-                #x, err, __func__, __FILE__, __LINE__, strerror(err));    \
-            exit(EXIT_FAILURE);                                           \
-        }                                                                 \
-    } while (0)
-
 #define ENSURE(x)                                                         \
     do {                                                                  \
         bool result = (x);                                                \
@@ -55,4 +45,4 @@ inline void fatal(const char *fmt, ...) {
     exit(EXIT_FAILURE);
 }
 
-#endif //ERR_H
+#endif // ERR_H
