@@ -9,9 +9,7 @@ void read_hello(ClientData &data);
 // Reads message from GUI. Returns message type that is equal to message id
 // if message from gui is different from Move. Returns 2 + direction if
 // message is Move. If message is incorrect, returns GUI_WRONG_MSG.
-// If ipv4 is true, only messages from ipv4 addresses are read. Otherwise,
-// only messages from ipv6 addresses.
-uint8_t read_message_from_gui(const ClientData &data, bool ipv4);
+uint8_t read_message_from_gui(const ClientData &data);
 
 // Sends message of type [message_type] to server. If message type is correct
 // and client is in lobby, sends Join.

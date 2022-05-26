@@ -29,8 +29,7 @@ struct ClientData {
 
     // Socket descriptors.
     int server_fd;
-    int gui_rec_ipv4_fd;
-    int gui_rec_ipv6_fd;
+    int gui_rec_fd;
     int gui_send_fd;
 
     // Mutex protecting is_in_lobby.

@@ -54,15 +54,9 @@ void read_hello(ClientData &data) {
     data.bomb_timer = read_uint<uint16_t>(data.server_fd);
 }
 
-uint8_t read_message_from_gui(const ClientData &data, bool ipv4) {
+uint8_t read_message_from_gui(const ClientData &data) {
     uint8_t buffer[2];
-    size_t read_length;
-    if (ipv4) {
-        read_length = receive_message(data.gui_rec_ipv4_fd, buffer, 2, NO_FLAGS);
-    }
-    else {
-        read_length = receive_message(data.gui_rec_ipv6_fd, buffer, 2, NO_FLAGS);
-    }
+    size_t read_length = receive_message(data.gui_rec_fd, buffer, 2, NO_FLAGS);
     if (!(read_length == 1 && buffer[0] < 2) && !(read_length == 2 && buffer[1] < 4)) {
         return GUI_WRONG_MSG;
     }
@@ -424,7 +418,7 @@ static void put_scores_into_buffer(const ClientData &data, uint8_t *buffer, size
 static void send_to_gui(int gui_send_fd, const uint8_t *buffer, size_t length) {
     ssize_t sent_length = send(gui_send_fd, buffer, length, NO_FLAGS);
     if (sent_length != (ssize_t) length) {
-        fatal("Connection with GUI refused.");
+        fatal("Connection with GUI failed.");
     }
 }
 

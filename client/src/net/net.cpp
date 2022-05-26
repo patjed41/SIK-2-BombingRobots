@@ -73,41 +73,19 @@ int connect(const std::string &host, uint16_t port, bool tcp) {
     return socket_fd;
 }
 
-int bind_udp_socket(uint16_t port, bool ipv4) {
-    struct addrinfo hints{};
-    memset(&hints, 0, sizeof(hints));
-    hints.ai_family = ipv4 ? AF_INET : AF_INET6;
-    hints.ai_socktype = SOCK_DGRAM;
-    hints.ai_flags = 0;
-    hints.ai_protocol = IPPROTO_UDP;
+int bind_udp_socket(uint16_t port) {
+    int socket_fd = socket(AF_INET6, SOCK_DGRAM, 0);
+    ENSURE(socket_fd > 0);
 
-    struct addrinfo *result, *next;
-    int socket_fd;
-
-    if (getaddrinfo(nullptr, std::to_string((int) port).c_str(), &hints, &result) != 0) {
-        fatal("Could not bind UDP socket to port %d.", port);
-    }
-
-    for (next = result; next != nullptr; next = next->ai_next) {
-        socket_fd = socket(next->ai_family, next->ai_socktype, next->ai_protocol);
-        if (socket_fd == -1) {
-            continue;
-        }
-
-        // Correct address was found and binding succeeded.
-        if (bind(socket_fd, next->ai_addr, next->ai_addrlen) == 0) {
-            break;
-        }
-
-        // Binding failed.
-        close(socket_fd);
-    }
-
-    freeaddrinfo(result);
-
-    if (next == nullptr) {
-        fatal("Could not bind UDP socket to port %d.", port);
-    }
+    struct sockaddr_in6 address{};
+    address.sin6_family = AF_INET6;
+    address.sin6_flowinfo = 0;
+    address.sin6_addr = IN6ADDR_ANY_INIT; // IPv4 and IPv6 should work
+    address.sin6_port = htons(port);
+    address.sin6_scope_id = 0;
+    CHECK_ERRNO(bind(socket_fd, (struct sockaddr *) &address,
+                     (socklen_t) sizeof(address)));
 
     return socket_fd;
 }
+

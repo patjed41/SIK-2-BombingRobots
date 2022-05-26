@@ -20,8 +20,7 @@ void initiate_connections(const ClientParameters &parameters) {
     }
     turn_off_nagle(data.server_fd);
 
-    data.gui_rec_ipv4_fd = bind_udp_socket(parameters.port, true);
-    data.gui_rec_ipv6_fd = bind_udp_socket(parameters.port, false);
+    data.gui_rec_fd = bind_udp_socket(parameters.port);
     data.gui_send_fd = connect(parameters.gui_address, parameters.gui_port, false);
     if (data.gui_send_fd == -1) {
         fatal("Could not connect to GUI. Address %s:%d may be incorrect.",
@@ -30,10 +29,9 @@ void initiate_connections(const ClientParameters &parameters) {
 }
 
 // Function executed by thread that reads from GUI and sends to server.
-[[noreturn]] void *from_gui_to_server(void *thread_data) {
-    bool ipv4 = *((bool *) thread_data);
+[[noreturn]] void *from_gui_to_server([[maybe_unused]] void *thread_data) {
     while (true) {
-        uint8_t message_type = read_message_from_gui(data, ipv4);
+        uint8_t message_type = read_message_from_gui(data);
         send_message_to_server(data, message_type);
     }
 }
@@ -48,18 +46,6 @@ void initiate_connections(const ClientParameters &parameters) {
     }
 }
 
-// Function starting new thread that reads from GUI and sends to server.
-// If [ipv4] is false, thread reads messages from ipv6 addresses.
-void start_from_gui_to_server_thread(bool ipv4) {
-    static bool IPV4 = true;
-    static bool IPV6 = false;
-    void *thread_data = ipv4 ? &IPV4 : &IPV6;
-    pthread_t from_gui_to_server_thread;
-    CHECK_ERRNO(pthread_create(&from_gui_to_server_thread, nullptr,
-                               from_gui_to_server, thread_data));
-    CHECK_ERRNO(pthread_detach(from_gui_to_server_thread));
-}
-
 int main(int argc, char *argv[]) {
     ClientParameters parameters = read_parameters(argc, argv);
     data.player_name = parameters.player_name;
@@ -68,8 +54,11 @@ int main(int argc, char *argv[]) {
     initiate_connections(parameters);
     read_hello(data);
 
-    start_from_gui_to_server_thread(true);
-    start_from_gui_to_server_thread(false);
+    // Start thread that reads from GUI and sends to server.
+    pthread_t from_gui_to_server_thread;
+    CHECK_ERRNO(pthread_create(&from_gui_to_server_thread, nullptr,
+                               from_gui_to_server, nullptr));
+    CHECK_ERRNO(pthread_detach(from_gui_to_server_thread));
 
     from_server_to_gui();
 }

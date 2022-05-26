@@ -20,7 +20,7 @@ void send_message(int socket_fd, const void *message, size_t length, int flags);
 // created socket. If connection failed, returns -1.
 int connect(const std::string &host, uint16_t port, bool tcp);
 
-// Binds UDP socket to port [port]. If ipv4 is false, protocol ipv6 is used.
-int bind_udp_socket(uint16_t port, bool ipv4);
+// Binds UDP socket to port [port].
+int bind_udp_socket(uint16_t port);
 
 #endif // NET_H
