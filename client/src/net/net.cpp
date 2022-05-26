@@ -73,10 +73,10 @@ int connect(const std::string &host, uint16_t port, bool tcp) {
     return socket_fd;
 }
 
-int bind_udp_socket(uint16_t port) {
+int bind_udp_socket(uint16_t port, bool ipv4) {
     struct addrinfo hints{};
     memset(&hints, 0, sizeof(hints));
-    hints.ai_family = AF_INET6;
+    hints.ai_family = ipv4 ? AF_INET : AF_INET6;
     hints.ai_socktype = SOCK_DGRAM;
     hints.ai_flags = 0;
     hints.ai_protocol = IPPROTO_UDP;
@@ -105,7 +105,6 @@ int bind_udp_socket(uint16_t port) {
 
     freeaddrinfo(result);
 
-    // No address was found.
     if (next == nullptr) {
         fatal("Could not bind UDP socket to port %d.", port);
     }
