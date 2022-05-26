@@ -44,27 +44,19 @@ static bool check_port(const char *port_str) {
 
 // Reads ip address in (address):(port) format. Returns false if address
 // is incorrect. Puts result in [address] and [port] references.
-static bool read_address(const char *address_and_port, std::string &address, uint16_t &port) {
-    address.clear();
-
-    size_t divider = 0;
-    for (size_t i = 0; i < strlen(address_and_port); i++) {
-        if (address_and_port[i] == ':') {
-            divider = i;
-        }
-    }
-    if (divider == 0) {
+static bool read_address(const std::string &address_and_port, std::string &address, uint16_t &port) {
+    size_t divider = address_and_port.find_last_of(':');
+    if (divider == std::string::npos) {
         return false;
     }
 
-    for (size_t i = 0; i < divider; i++) {
-        address += address_and_port[i];
-    }
-    std::string port_str;
-    for (size_t i = divider + 1; i < strlen(address_and_port); i++) {
-        port_str += address_and_port[i];
+    size_t address_border = address_and_port[0] == '[' && address_and_port[divider - 1] == ']' ? 1 : 0;
+    address = address_and_port.substr(address_border, divider - 2 * address_border);
+    if (address.empty()) {
+        return false;
     }
 
+    std::string port_str = address_and_port.substr(divider + 1);
     if (!check_port(port_str.c_str())) {
         return false;
     }
@@ -77,25 +69,29 @@ static bool read_address(const char *address_and_port, std::string &address, uin
 // [parameters] reference.
 static void read_parameter(ClientParameters &parameters, const char *option, const char *value) {
     if (strcmp(option, "-d") == 0) {
-        if (!read_address(value, parameters.gui_address, parameters.gui_port)) {
+        if (parameters.gui_address.empty() && !read_address(value, parameters.gui_address, parameters.gui_port)) {
             fatal("Incorrect gui address %s.", value);
         }
     }
     else if (strcmp(option, "-n") == 0) {
+        if (!parameters.player_name.empty()) {
+            return;
+        }
         parameters.player_name = std::string(value);
         if (parameters.player_name.length() > MAX_STRING_LEN) {
             fatal("Name cannot contain more that 256 characters.");
         }
     }
     else if (strcmp(option, "-p") == 0) {
-        if (!check_port(value)) {
+        if (!parameters.read_port && !check_port(value)) {
             fatal("Incorrect port %s, available values: 0-65535.", value);
         }
         parameters.port = (uint16_t) strtol(value, nullptr, 10);
         parameters.read_port = true;
     }
     else if (strcmp(option, "-s") == 0) {
-        if (!read_address(value, parameters.server_address, parameters.server_port)) {
+        if (parameters.server_address.empty() && !read_address(std::string(value),
+                parameters.server_address, parameters.server_port)) {
             fatal("Incorrect server address %s.", value);
         }
     }
@@ -131,8 +127,8 @@ ClientParameters read_parameters(int argc, char *argv[]) {
     }
 
     ClientParameters parameters;
-    for (int i = 1; i < argc; i += 2) {
-        read_parameter(parameters, argv[i], argv[i + 1]);
+    for (int i = argc - 1; i > 0; i -= 2) {
+        read_parameter(parameters, argv[i - 1], argv[i]);
     }
 
     ensure_every_parameter_read(parameters);

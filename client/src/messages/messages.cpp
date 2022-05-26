@@ -6,6 +6,7 @@
 
 #define DATAGRAM_LIMIT 65507
 #define GUI_WRONG_MSG 10
+#define NO_FLAGS 0
 
 template<class T>
 static T read_uint(int socket_fd) {
@@ -17,7 +18,7 @@ static T read_uint(int socket_fd) {
 
 template<class T>
 static void send_uint(int socket_fd, T value) {
-    send_message(socket_fd, &value, sizeof(T), 0);
+    send_message(socket_fd, &value, sizeof(T), NO_FLAGS);
 }
 
 static std::string read_string(int socket_fd) {
@@ -34,7 +35,7 @@ static void send_join(ClientData &data) {
     buffer[0] = 0;
     buffer[1] = (uint8_t) data.player_name.size();
     memcpy(buffer + 2, data.player_name.c_str(), data.player_name.size());
-    send_message(data.server_fd, buffer, sizeof(buffer), 0);
+    send_message(data.server_fd, buffer, sizeof(buffer), NO_FLAGS);
 }
 
 void read_hello(ClientData &data) {
@@ -49,9 +50,9 @@ void read_hello(ClientData &data) {
     data.bomb_timer = read_uint<uint16_t>(data.server_fd);
 }
 
-uint8_t read_message_from_gui(ClientData &data) {
+uint8_t read_message_from_gui(const ClientData &data) {
     uint8_t buffer[2];
-    size_t read_length = receive_message(data.gui_rec_fd, buffer, 2, 0);
+    size_t read_length = receive_message(data.gui_rec_fd, buffer, 2, NO_FLAGS);
     if (!(read_length == 1 && buffer[0] < 2) && !(read_length == 2 && buffer[1] < 4)) {
         return GUI_WRONG_MSG;
     }
@@ -87,7 +88,7 @@ void send_message_to_server(ClientData &data, uint8_t message_type) {
         uint8_t buffer[2];
         buffer[0] = 3;
         buffer[1] = message_type - 2;
-        send_message(data.server_fd, buffer, 2, 0);
+        send_message(data.server_fd, buffer, 2, NO_FLAGS);
     }
 }
 
@@ -141,34 +142,61 @@ static void read_game_started(ClientData &data) {
     data.is_in_lobby = false;
 }
 
-static void read_game_ended(ClientData &data) {
-    Map<PlayerId, Score> server_scores;
-
-    u_int32_t map_length = ntohl(read_uint<uint32_t>(data.server_fd));
-    for (uint32_t i = 0; i < map_length; i++) {
-        PlayerId player_id = read_player_id(data.server_fd);
-        Score server_score = read_score(data.server_fd);
-        server_scores[player_id] = server_score;
-    }
-
-    if (data.scores.size() != server_scores.size()
-        || !std::equal(data.scores.begin(), data.scores.end(), server_scores.begin())) {
-        fatal("Incorrect score in client.");
-    }
-
-    data.clear();
-}
-
 static void read_bomb_placed(ClientData &data) {
     BombId bomb_id = read_bomb_id(data.server_fd);
     Position position = read_position(data.server_fd);
-    Bomb bomb = (Bomb) { .position = position, .timer = ntohs(data.bomb_timer) };
+    Bomb bomb(position, ntohs(data.bomb_timer));
     data.bombs[bomb_id] = bomb;
+}
+
+static Position convertPosition(const Position &position) {
+    return Position(htons(position.x), htons(position.y));
+}
+
+static void findExplosions(ClientData &data, const Position &bomb_position) {
+    uint16_t host_explosion_radius = ntohs(data.explosion_radius);
+
+    Position position = convertPosition(bomb_position);
+    for (uint16_t i = 0; i <= host_explosion_radius; i++) {
+        data.explosions.insert(convertPosition(position));
+        if (data.blocks.contains(convertPosition(position)) || position.y == ntohs(data.size_y) - 1) {
+            break;
+        }
+        position.y++;
+    }
+
+    position = convertPosition(bomb_position);
+    for (uint16_t i = 0; i <= host_explosion_radius; i++) {
+        data.explosions.insert(convertPosition(position));
+        if (data.blocks.contains(convertPosition(position)) || position.x == ntohs(data.size_x) - 1) {
+            break;
+        }
+        position.x++;
+    }
+
+    position = convertPosition(bomb_position);
+    for (uint16_t i = 0; i <= host_explosion_radius; i++) {
+        data.explosions.insert(convertPosition(position));
+        if (data.blocks.contains(convertPosition(position)) || position.y == 0) {
+            break;
+        }
+        position.y--;
+    }
+
+    position = convertPosition(bomb_position);
+    for (uint16_t i = 0; i <= host_explosion_radius; i++) {
+        data.explosions.insert(convertPosition(position));
+        if (data.blocks.contains(convertPosition(position)) || position.x == 0) {
+            break;
+        }
+        position.x--;
+    }
 }
 
 static void read_bomb_exploded(ClientData &data) {
     BombId bomb_id = read_bomb_id(data.server_fd);
-    data.explosions.push_back(data.bombs[bomb_id].position);
+
+    findExplosions(data, data.bombs[bomb_id].position);
     data.bombs.erase(bomb_id);
 
     u_int32_t list_length = ntohl(read_uint<uint32_t>(data.server_fd));
@@ -180,7 +208,7 @@ static void read_bomb_exploded(ClientData &data) {
     list_length = ntohl(read_uint<uint32_t>(data.server_fd));
     for (uint32_t i = 0; i < list_length; i++) {
         Position position = read_position(data.server_fd);
-        data.blocks.erase(std::find(data.blocks.begin(), data.blocks.end(), position));
+        data.blocks_destroyed_this_round.insert(position);
     }
 }
 
@@ -192,12 +220,27 @@ static void read_player_moved(ClientData &data) {
 
 static void read_block_placed(ClientData &data) {
     Position position = read_position(data.server_fd);
-    data.blocks.push_back(position);
+    data.blocks.emplace(position);
+}
+
+static void read_game_ended(ClientData &data) {
+    Map<PlayerId, Score> server_scores;
+
+    u_int32_t map_length = ntohl(read_uint<uint32_t>(data.server_fd));
+    for (uint32_t i = 0; i < map_length; i++) {
+        PlayerId player_id = read_player_id(data.server_fd);
+        Score server_score = read_score(data.server_fd);
+        server_scores[player_id] = server_score;
+    }
+
+    data.clear();
 }
 
 static void read_event(ClientData &data) {
     auto event_type = read_uint<uint8_t>(data.server_fd);
-    ENSURE(event_type < 4);
+    if (event_type >= 4) {
+        fatal("Invalid event (%d).", (int) event_type);
+    }
 
     switch (event_type) {
         case 0:
@@ -220,6 +263,11 @@ static void read_event(ClientData &data) {
 static void read_turn(ClientData &data) {
     data.explosions.clear();
     data.died_this_round.clear();
+    data.blocks_destroyed_this_round.clear();
+    for (auto &bomb : data.bombs) {
+        bomb.second.timer--;
+    }
+
     data.turn = read_uint<uint16_t>(data.server_fd);
 
     u_int32_t list_length = ntohl(read_uint<uint32_t>(data.server_fd));
@@ -230,44 +278,54 @@ static void read_turn(ClientData &data) {
     for (PlayerId player_id : data.died_this_round) {
         data.scores[player_id]++;
     }
-    for (auto &bomb : data.bombs) {
-        bomb.second.timer--;
+    for (const Position &position : data.blocks_destroyed_this_round) {
+        data.blocks.erase(position);
     }
 }
 
-void read_message_from_server(ClientData &data) {
+bool read_message_from_server(ClientData &data) {
     auto message_type = read_uint<uint8_t>(data.server_fd);
-    ENSURE(message_type > 0 && message_type < 5);
+    if (message_type == 0 || message_type >= 5) {
+        fatal("Invalid message (%d) from server.", (int) message_type);
+    }
 
     ENSURE(pthread_mutex_lock(&data.lock) == 0);
+
+    bool send_to_gui = false;
 
     switch (message_type) {
         case 1:
             read_accepted_player(data);
+            send_to_gui = true;
             break;
         case 2:
             read_game_started(data);
+            send_to_gui = false;
             break;
         case 3:
             read_turn(data);
+            send_to_gui = true;
             break;
         case 4:
             read_game_ended(data);
+            send_to_gui = true;
             break;
         default:
             break;
     }
 
     ENSURE(pthread_mutex_unlock(&data.lock) == 0);
+
+    return send_to_gui;
 }
 
 template<class T>
-void put_uint_into_buffer(T value, uint8_t *buffer, size_t &next_index) {
+static void put_uint_into_buffer(T value, uint8_t *buffer, size_t &next_index) {
     memcpy(buffer + next_index, &value, sizeof(T));
     next_index += sizeof(T);
 }
 
-void put_string_into_buffer(const std::string &str, uint8_t *buffer, size_t &next_index) {
+static void put_string_into_buffer(const std::string &str, uint8_t *buffer, size_t &next_index) {
     put_uint_into_buffer<uint8_t>((uint8_t) str.size(), buffer, next_index);
     for (char i : str) {
         put_uint_into_buffer<uint8_t>((uint8_t) i, buffer, next_index);
@@ -327,7 +385,7 @@ static void put_scores_into_buffer(ClientData &data, uint8_t *buffer, size_t &ne
 }
 
 static void send_to_gui(int gui_send_fd, const uint8_t *buffer, size_t length) {
-    ssize_t sent_length = send(gui_send_fd, buffer, length, 0);
+    ssize_t sent_length = send(gui_send_fd, buffer, length, NO_FLAGS);
     if (sent_length != (ssize_t) length) {
         fatal("Connection with GUI refused.");
     }
