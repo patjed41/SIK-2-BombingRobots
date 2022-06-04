@@ -1,11 +1,7 @@
 #ifndef SERVER_PARAMETERS_H
 #define SERVER_PARAMETERS_H
 
-#include <sys/types.h>
 #include <string>
-#include <netinet/in.h>
-#include <sys/socket.h>
-#include <netdb.h>
 #include <chrono>
 
 // Struct containing information from command line parameters.

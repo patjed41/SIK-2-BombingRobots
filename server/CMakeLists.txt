@@ -6,7 +6,10 @@ set(CMAKE_CXX_FLAGS "-Wall -Wextra -Wconversion -Werror -O2 -std=gnu++20")
 
 set(SOURCE_FILES
     src/main.cpp
+    src/server-data/server_data.cpp
     src/server-parameters/server_parameters.cpp
+    src/messages/messages.cpp
+    src/net/net.cpp
     )
 
 add_executable(robots-server ${SOURCE_FILES})

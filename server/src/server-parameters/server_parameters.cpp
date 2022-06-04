@@ -3,7 +3,6 @@
 
 #include <cstring>
 #include <iostream>
-#include <arpa/inet.h>
 
 #define MAX_STRING_LEN 256
 
