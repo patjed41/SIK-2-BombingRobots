@@ -1,6 +1,9 @@
 client/cmake-build-debug
 client/build
 client/.idea
+server/cmake-build-debug
+server/build
+server/.idea
 CMakeLists.txt.user
 CMakeCache.txt
 CMakeFiles
