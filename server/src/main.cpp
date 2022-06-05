@@ -33,7 +33,7 @@ static void accept_new_client(const ServerParameters &parameters, ServerData &da
         }
         else {
             send_message(client_fd, build_game_started(data), NO_FLAGS);
-            // send turns
+            send_message(client_fd, data.all_turn_messages, NO_FLAGS);
         }
     }
 }
@@ -88,6 +88,20 @@ static void send_accepted_player_to_all(ServerData &data, size_t poll_id) {
 // Sends GameStarted message to all clients.
 static void send_game_started_to_all(ServerData &data) {
     List<uint8_t> message = build_game_started(data);
+    send_message_to_all(data, message);
+}
+
+// Sends Turn message with turn = 0 to all clients.
+static void send_turn_0_to_everyone(const ServerParameters &parameters, ServerData &data) {
+    List<uint8_t> message = build_turn_0(parameters, data);
+    data.all_turn_messages.insert(data.all_turn_messages.end(), message.begin(), message.end());
+    send_message_to_all(data, message);
+}
+
+// Sends Turn message to all clients.
+static void send_turn_to_everyone(const ServerParameters &parameters, ServerData &data) {
+    List<uint8_t> message = build_turn(parameters, data);
+    data.all_turn_messages.insert(data.all_turn_messages.end(), message.begin(), message.end());
     send_message_to_all(data, message);
 }
 
@@ -147,6 +161,19 @@ static void read_from_client(const ServerParameters &parameters, ServerData &dat
     }
 }
 
+static double time_dif_in_millis(const timeval &t1, const timeval &t2) {
+    double seconds_dif = (float) (t2.tv_sec - t1.tv_sec) * 1000.f;
+    double millis_dif = (float) (t2.tv_usec - t1.tv_usec) / 1000.f;
+    return seconds_dif + millis_dif;
+}
+
+static void update_time_during_turn(ServerData &data) {
+    timeval current_time;
+    gettimeofday(&current_time, nullptr);
+    data.time_to_next_round += time_dif_in_millis(data.last_time, current_time);
+    data.last_time = current_time;
+}
+
 // Runs server.
 [[noreturn]] static void run(const ServerParameters &parameters, ServerData &data) {
     while (true) {
@@ -171,8 +198,16 @@ static void read_from_client(const ServerParameters &parameters, ServerData &dat
 
         if (data.in_lobby && data.players.size() == parameters.players_count) {
             send_game_started_to_all(data);
-            // send turn 0 to everyone
-            data.in_lobby = false;
+            send_turn_0_to_everyone(parameters, data);
+            gettimeofday(&data.last_time, nullptr);
+            memset(data.clients_last_messages, NO_MSG, MAX_CLIENTS + 1);
+        }
+        else if (!data.in_lobby) {
+            update_time_during_turn(data);
+            if ((uint64_t) data.time_to_next_round >= parameters.turn_duration) {
+                send_turn_to_everyone(parameters, data);
+                memset(data.clients_last_messages, NO_MSG, MAX_CLIENTS + 1);
+            }
         }
     }
 }
@@ -180,7 +215,7 @@ static void read_from_client(const ServerParameters &parameters, ServerData &dat
 int main(int argc, char *argv[]) {
     ServerParameters parameters = read_parameters(argc, argv);
 
-    ServerData data;
+    ServerData data(parameters.seed);
     data.poll_descriptors[0].fd = bind_tcp_socket(parameters.port);
     turn_off_nagle(data.poll_descriptors[0].fd);
     start_listening(data.poll_descriptors[0].fd, QUEUE_LENGTH);

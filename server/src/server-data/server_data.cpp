@@ -1,6 +1,8 @@
 #include "server_data.h"
 
-ServerData::ServerData() {
+ServerData::ServerData(uint32_t seed) {
+    random = std::minstd_rand(seed);
+
     for (size_t i = 0; i <= MAX_CLIENTS; ++i) {
         poll_descriptors[i].fd = -1;
         poll_descriptors[i].events = POLLIN;

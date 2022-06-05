@@ -3,6 +3,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <string>
 #include <cerrno>
 #include <sys/socket.h>
 #include <unistd.h>
@@ -51,7 +52,14 @@ void close_socket(int socket_fd) {
 std::string get_address(const sockaddr_in6 &address) {
     char address_str[INET6_ADDRSTRLEN];
     if (inet_ntop(AF_INET6, &address.sin6_addr, address_str, INET6_ADDRSTRLEN)) {
-        return std::string(address_str);
+        std::string result(address_str);
+        result.insert(0, "[");
+        result += ']';
+
+        // Append port.
+        result += ':';
+        result.append(std::to_string(ntohs(address.sin6_port)));
+        return result;
     }
     else {
         PRINT_ERRNO();

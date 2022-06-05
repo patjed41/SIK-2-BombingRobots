@@ -16,6 +16,13 @@ List<uint8_t> build_accepted_player(const ServerData &data, size_t poll_id);
 // Builds GameStarted message and returns it.
 List<uint8_t> build_game_started(const ServerData &data);
 
+// Builds Turn message with turn = 0. Changes [data] by placing players
+// and blocks.
+List<uint8_t> build_turn_0(const ServerParameters &parameters, ServerData &data);
+
+// Builds Turn message. Updates [data].
+List<uint8_t> build_turn(const ServerParameters &parameters, ServerData &data);
+
 // Returns true if client sent correct and complete Join message.
 bool client_sent_join(const Deque<uint8_t> &buffer);
 
