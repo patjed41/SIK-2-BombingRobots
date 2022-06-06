@@ -6,8 +6,8 @@
 
 #define NO_FLAGS 0
 
-// Sends Hello message to client [client_fd].
-void send_hello(int client_fd, const ServerParameters &parameters);
+// Builds Hello message.
+List<uint8_t> build_hello(const ServerParameters &parameters);
 
 // Builds AcceptedPlayer message and returns it. Client with poll id [poll_id]
 // is the accepted player.
@@ -22,6 +22,9 @@ List<uint8_t> build_turn_0(const ServerParameters &parameters, ServerData &data)
 
 // Builds Turn message. Updates [data].
 List<uint8_t> build_turn(const ServerParameters &parameters, ServerData &data);
+
+// Builds GameEnded message and returns it.
+List<uint8_t> build_game_ended(const ServerData &data);
 
 // Returns true if client sent correct and complete Join message.
 bool client_sent_join(const Deque<uint8_t> &buffer);

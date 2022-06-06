@@ -28,25 +28,32 @@ struct ServerData {
     Map<PlayerId, Position> player_positions;
     Set<Position> blocks;
     Map<BombId, Bomb> bombs;
-    uint32_t next_bomb_id = 0;
+    uint32_t next_bomb_id;
     Set<PlayerId> robots_destroyed;
     Set<Position> blocks_destroyed;
     Set<PlayerId> all_robots_destroyed;
     Set<Position> all_blocks_destroyed;
+    Map<PlayerId, Score> scores;
 
     List<uint8_t> all_accepted_player_messages;
     List<uint8_t> all_turn_messages;
 
     bool in_lobby = true;
-    double time_to_next_round = 0; // in milliseconds
+    double time_to_next_round; // in milliseconds
     timeval last_time;
     uint16_t turn;
 
     std::minstd_rand random;
 
-    ServerData(uint32_t seed);
+    ServerData(uint32_t seed, uint8_t players_count);
 
     void clear_poll_descriptors();
+
+    void clear_client_last_messages();
+
+    void set_up_new_game();
+
+    void clear_state();
 };
 
 #endif // SERVER_DATA_H

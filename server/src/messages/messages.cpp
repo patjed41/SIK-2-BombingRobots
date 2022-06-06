@@ -40,7 +40,7 @@ static PlayerId get_player_id_by_poll_id(const ServerData &data, size_t poll_id)
     return MAX_CLIENTS + 1;
 }
 
-void send_hello(int client_fd, const ServerParameters &parameters) {
+List<uint8_t> build_hello(const ServerParameters &parameters) {
     List<uint8_t> message(1, 0);
     put_string_into_message(parameters.server_name, message);
     put_uint_into_message<uint8_t>(parameters.players_count, message);
@@ -50,7 +50,7 @@ void send_hello(int client_fd, const ServerParameters &parameters) {
     put_uint_into_message<uint16_t>(parameters.explosion_radius, message);
     put_uint_into_message<uint16_t>(parameters.bomb_timer, message);
 
-    send_message(client_fd, message, NO_FLAGS);
+    return message;
 }
 
 List<uint8_t> build_accepted_player(const ServerData &data, size_t poll_id) {
@@ -123,11 +123,7 @@ static Position get_random_position(const ServerParameters &parameters, ServerDa
 
 List<uint8_t> build_turn_0(const ServerParameters &parameters, ServerData &data) {
     List<uint8_t> message(1, 3);
-    data.turn = 0;
-    data.in_lobby = false;
-    data.time_to_next_round = 0;
-    data.next_bomb_id = 0;
-    put_uint_into_message<uint16_t>(data.turn, message);
+    put_uint_into_message<uint16_t>(0, message);
     put_uint_into_message<uint32_t>((uint32_t) parameters.players_count +
                                     (uint32_t) parameters.initial_blocks, message);
 
@@ -295,6 +291,7 @@ List<uint8_t> build_turn(const ServerParameters &parameters, ServerData &data) {
     for (PlayerId id = 0; id < parameters.players_count; id++) {
         if (data.all_robots_destroyed.contains(id)) {
             spawn_player(data, id, get_random_position(parameters, data), events_message);
+            data.scores[id]++;
             events++;
         }
         else if (data.clients_last_messages[data.players[id].poll_id] == PLACE_BOMB) {
@@ -316,6 +313,16 @@ List<uint8_t> build_turn(const ServerParameters &parameters, ServerData &data) {
 
     put_uint_into_message<uint32_t>(events, message);
     message.insert(message.end(), events_message.begin(), events_message.end());
+    return message;
+}
+
+List<uint8_t> build_game_ended(const ServerData &data) {
+    List<uint8_t> message(1, 4);
+    put_uint_into_message<uint32_t>((uint32_t) data.scores.size(), message);
+    for (const auto &score : data.scores) {
+        put_uint_into_message<PlayerId>(score.first, message);
+        put_uint_into_message<Score>(score.second, message);
+    }
     return message;
 }
 

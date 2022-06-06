@@ -67,11 +67,8 @@ std::string get_address(const sockaddr_in6 &address) {
     }
 }
 
-void send_message(int socket_fd, const List<uint8_t> &message, int flags) {
+bool send_message(int socket_fd, const List<uint8_t> &message, int flags) {
     errno = 0;
     ssize_t sent_length = send(socket_fd, message.data(), message.size(), flags);
-    if (sent_length < 0) {
-        PRINT_ERRNO();
-    }
-    ENSURE(sent_length == (ssize_t) message.size());
+    return sent_length == (ssize_t) message.size();
 }

@@ -30,7 +30,7 @@ void close_socket(int socked_fd);
 // Extracts address from sockaddr_in6 structure.
 std::string get_address(const sockaddr_in6 &address);
 
-// Sends [message] via [socket_fd].
-void send_message(int socket_fd, const List<uint8_t> &message, int flags);
+// Sends [message] via [socket_fd]. Returns false if sending failed.
+bool send_message(int socket_fd, const List<uint8_t> &message, int flags);
 
 #endif // NET_H
