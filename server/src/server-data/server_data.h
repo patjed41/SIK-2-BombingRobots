@@ -52,6 +52,8 @@ struct ServerData {
 
     void clear_client_last_messages();
 
+    void update_time_during_game();
+
     void set_up_new_game();
 
     void clear_state();

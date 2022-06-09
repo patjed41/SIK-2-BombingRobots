@@ -13,6 +13,7 @@ set(SOURCE_FILES
     src/server-parameters/server_parameters.cpp
     src/messages/messages.cpp
     src/net/net.cpp
-    )
+    src/server-engine/server_engine.cpp
+)
 
 add_executable(robots-server ${SOURCE_FILES})

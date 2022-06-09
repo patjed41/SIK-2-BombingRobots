@@ -28,6 +28,19 @@ void ServerData::clear_client_last_messages() {
     memset(clients_last_messages, NO_MSG, MAX_CLIENTS + 1);
 }
 
+static double time_dif_in_millis(const timeval &t1, const timeval &t2) {
+    double seconds_dif = (float) (t2.tv_sec - t1.tv_sec) * 1000.f;
+    double millis_dif = (float) (t2.tv_usec - t1.tv_usec) / 1000.f;
+    return seconds_dif + millis_dif;
+}
+
+void ServerData::update_time_during_game() {
+    timeval current_time;
+    gettimeofday(&current_time, nullptr);
+    time_to_next_round += time_dif_in_millis(last_time, current_time);
+    last_time = current_time;
+}
+
 void ServerData::set_up_new_game() {
     in_lobby = false;
     for (const auto &player : players) {
