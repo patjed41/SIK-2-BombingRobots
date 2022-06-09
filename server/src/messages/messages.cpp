@@ -294,6 +294,9 @@ List<uint8_t> build_turn(const ServerParameters &parameters, ServerData &data) {
             data.scores[id]++;
             events++;
         }
+        else if (data.disconnected_players.contains(id)) {
+            continue;
+        }
         else if (data.clients_last_messages[data.players[id].poll_id] == PLACE_BOMB) {
             spawn_bomb(data, data.player_positions[id], parameters.bomb_timer, events_message);
             events++;

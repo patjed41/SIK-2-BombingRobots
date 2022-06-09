@@ -305,6 +305,17 @@ static void read_game_ended(ClientData &data) {
         server_scores[player_id] = server_score;
     }
 
+    bool check = data.scores.size() == server_scores.size()
+           && std::equal(data.scores.begin(), data.scores.end(), server_scores.begin(),
+                         [] (auto a, auto b) { return a.first == b.first; });
+
+    std::cout << server_scores.size() << std::endl;
+
+    if (!check) {
+        fatal("Wrong score!");
+        exit(1);
+    }
+
     data.clear();
 }
 

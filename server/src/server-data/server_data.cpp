@@ -41,6 +41,7 @@ void ServerData::set_up_new_game() {
 
 void ServerData::clear_state() {
     in_lobby = true;
+    disconnected_players.clear();
     players.clear();
     player_positions.clear();
     blocks.clear();

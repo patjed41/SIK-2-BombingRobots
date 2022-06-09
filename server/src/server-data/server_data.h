@@ -23,6 +23,7 @@ struct ServerData {
     List<Deque<uint8_t>> clients_buffers;
     uint8_t clients_last_messages[MAX_CLIENTS + 1];
     int active_clients = 0;
+    Set<PlayerId> disconnected_players;
 
     Map<PlayerId, Player> players;
     Map<PlayerId, Position> player_positions;

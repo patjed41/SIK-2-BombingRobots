@@ -14,6 +14,12 @@ static void disconnect_client(ServerData &data, size_t poll_id) {
     data.clients_buffers[poll_id].clear();
     data.clients_last_messages[poll_id] = 0;
     data.active_clients--;
+
+    for (auto & player : data.players) {
+        if (player.second.poll_id == poll_id) {
+            data.disconnected_players.emplace(player.first);
+        }
+    }
 }
 
 // Disconnects client with poll id [poll_id] if [send_succeeded] = false.
@@ -215,12 +221,10 @@ static void update_time_during_turn(ServerData &data) {
         else if (!data.in_lobby) {
             update_time_during_turn(data);
             if ((uint64_t) data.time_to_next_round >= parameters.turn_duration) {
+                send_turn_to_all(parameters, data);
                 if (data.turn == parameters.game_length) {
                     send_game_ended_to_all(data);
                     data.clear_state();
-                }
-                else {
-                    send_turn_to_all(parameters, data);
                 }
                 data.clear_client_last_messages();
             }
