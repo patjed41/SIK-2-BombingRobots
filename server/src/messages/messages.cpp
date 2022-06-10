@@ -274,7 +274,7 @@ static void clear_destroyed_blocks(ServerData &data) {
 /******************************** TO CLIENTS **********************************/
 
 List<uint8_t> build_hello(const ServerParameters &parameters) {
-    List<uint8_t> message(1, 0);
+    List<uint8_t> message = {0};
     put_string_into_message(parameters.server_name, message);
     put_uint_into_message<uint8_t>(parameters.players_count, message);
     put_uint_into_message<uint16_t>(parameters.size_x, message);
@@ -286,7 +286,7 @@ List<uint8_t> build_hello(const ServerParameters &parameters) {
 }
 
 List<uint8_t> build_accepted_player(const ServerData &data, size_t poll_id) {
-    List<uint8_t> message(1, 1);
+    List<uint8_t> message = {1};
     PlayerId player_id = get_player_id_by_poll_id(data, poll_id);
     put_uint_into_message<PlayerId>(player_id, message);
     put_player_into_message(data.players.at(player_id), message);
@@ -294,7 +294,7 @@ List<uint8_t> build_accepted_player(const ServerData &data, size_t poll_id) {
 }
 
 List<uint8_t> build_game_started(const ServerData &data) {
-    List<uint8_t> message(1, 2);
+    List<uint8_t> message = {2};
     put_uint_into_message<uint32_t>((uint32_t) data.players.size(), message);
     for (const auto &player : data.players) {
         put_uint_into_message<PlayerId>(player.first, message);
@@ -304,26 +304,32 @@ List<uint8_t> build_game_started(const ServerData &data) {
 }
 
 List<uint8_t> build_turn_0(const ServerParameters &parameters, ServerData &data) {
-    List<uint8_t> message(1, 3);
+    List<uint8_t> message = {3};
+    List<uint8_t> events_message; // suffix of message containing events
     put_uint_into_message<uint16_t>(0, message);
-    put_uint_into_message<uint32_t>((uint32_t) parameters.players_count +
-                                    (uint32_t) parameters.initial_blocks, message);
+    uint32_t events = (uint32_t) parameters.players_count;
 
     // Place players.
     for (PlayerId id = 0; id < parameters.players_count; id++) {
-        spawn_player(data, id, get_random_position(parameters, data), message);
+        spawn_player(data, id, get_random_position(parameters, data), events_message);
     }
 
     // Place blocks.
     for (uint16_t i = 0; i < parameters.initial_blocks; i++) {
-        spawn_block(data, get_random_position(parameters, data), message);
+        Position position = get_random_position(parameters, data);
+        if (!data.blocks.contains(position)) {
+            spawn_block(data, position, events_message);
+            events++;
+        }
     }
 
+    put_uint_into_message<uint32_t>(events, message);
+    message.insert(message.end(), events_message.begin(), events_message.end());
     return message;
 }
 
 List<uint8_t> build_turn(const ServerParameters &parameters, ServerData &data) {
-    List<uint8_t> message(1, 3);
+    List<uint8_t> message = {3};
     List<uint8_t> events_message; // suffix of message containing events
     put_uint_into_message<uint16_t>(data.turn, message);
     uint32_t events = 0;
@@ -364,7 +370,7 @@ List<uint8_t> build_turn(const ServerParameters &parameters, ServerData &data) {
 }
 
 List<uint8_t> build_game_ended(const ServerData &data) {
-    List<uint8_t> message(1, 4);
+    List<uint8_t> message = {4};
     put_uint_into_message<uint32_t>((uint32_t) data.scores.size(), message);
     for (const auto &score : data.scores) {
         put_uint_into_message<PlayerId>(score.first, message);
