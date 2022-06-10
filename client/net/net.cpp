@@ -1,5 +1,5 @@
 #include "net.h"
-#include "../err.h"
+#include "../../common/err.h"
 
 #include <cstdio>
 #include <cstdlib>

@@ -5,7 +5,7 @@
 
 #include "client-parameters/client_parameters.h"
 #include "net/net.h"
-#include "err.h"
+#include "../common/err.h"
 #include "client-data/client_data.h"
 #include "messages/messages.h"
 

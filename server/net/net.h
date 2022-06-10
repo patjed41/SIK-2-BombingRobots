@@ -5,8 +5,8 @@
 #include <arpa/inet.h>
 #include <string>
 
-#include "../err.h"
-#include "../server-data/types.h"
+#include "../../common/err.h"
+#include "../../common/types.h"
 
 #define QUEUE_LENGTH 25     // Max length of queue of clients trying to connect.
 #define PACKET_LIMIT 65535  // Max number of bytes send in one TCP packet.

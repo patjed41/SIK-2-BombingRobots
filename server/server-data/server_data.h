@@ -7,7 +7,7 @@
 #include <random>
 #include <sys/time.h>
 
-#include "types.h"
+#include "../../common/types.h"
 
 #define MAX_CLIENTS 25
 

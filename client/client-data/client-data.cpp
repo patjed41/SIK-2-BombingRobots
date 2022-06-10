@@ -1,5 +1,5 @@
 #include "client_data.h"
-#include "../err.h"
+#include "../../common/err.h"
 
 void ClientData::init() {
     ENSURE(pthread_mutex_init(&lock, nullptr) == 0);

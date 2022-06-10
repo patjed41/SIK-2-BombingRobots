@@ -3,7 +3,7 @@
 
 #include <pthread.h>
 
-#include "types.h"
+#include "../../common/types.h"
 
 // Structure containing the data required by client.
 struct ClientData {

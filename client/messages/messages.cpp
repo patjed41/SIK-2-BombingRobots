@@ -1,6 +1,6 @@
 #include "messages.h"
 #include "../net/net.h"
-#include "../err.h"
+#include "../../common/err.h"
 
 #include <iostream>
 
