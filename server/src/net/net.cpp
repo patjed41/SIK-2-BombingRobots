@@ -1,14 +1,7 @@
 #include "net.h"
 
-#include <cstdio>
-#include <cstdlib>
-#include <cstring>
-#include <string>
-#include <cerrno>
-#include <sys/socket.h>
 #include <unistd.h>
 #include <netinet/tcp.h>
-#include <iostream>
 
 int bind_tcp_socket(uint16_t port) {
     int socket_fd = socket(AF_INET6, SOCK_STREAM, IPPROTO_TCP);
@@ -17,7 +10,7 @@ int bind_tcp_socket(uint16_t port) {
     sockaddr_in6 address{};
     address.sin6_family = AF_INET6;
     address.sin6_flowinfo = 0;
-    address.sin6_addr = IN6ADDR_ANY_INIT; // IPv4 and IPv6 should work
+    address.sin6_addr = IN6ADDR_ANY_INIT; // IPv4 and IPv6 should work.
     address.sin6_port = htons(port);
     address.sin6_scope_id = 0;
     CHECK_ERRNO(bind(socket_fd, (sockaddr *) &address, (socklen_t) sizeof(address)));
@@ -29,9 +22,9 @@ void start_listening(int socket_fd, int queue_length) {
     CHECK_ERRNO(listen(socket_fd, queue_length));
 }
 
-void turn_off_nagle(int socked_fd) {
+bool turn_off_nagle(int socked_fd) {
     struct ip_mreq ipv{};
-    CHECK_ERRNO(setsockopt(socked_fd, IPPROTO_TCP, TCP_NODELAY, (void *)&ipv, sizeof(ipv)));
+    return setsockopt(socked_fd, IPPROTO_TCP, TCP_NODELAY, (void *)&ipv, sizeof(ipv)) == 0;
 }
 
 int accept_connection(int socket_fd, sockaddr_in6 *client_address) {
@@ -39,14 +32,10 @@ int accept_connection(int socket_fd, sockaddr_in6 *client_address) {
 
     int client_fd = accept(socket_fd, (sockaddr *) client_address, &client_address_length);
     if (client_fd < 0) {
-        PRINT_ERRNO();
+        return -1;
     }
 
     return client_fd;
-}
-
-void close_socket(int socket_fd) {
-    CHECK_ERRNO(close(socket_fd));
 }
 
 std::string get_address(const sockaddr_in6 &address) {
@@ -62,8 +51,7 @@ std::string get_address(const sockaddr_in6 &address) {
         return result;
     }
     else {
-        PRINT_ERRNO();
-        return "";
+        return "fail";
     }
 }
 

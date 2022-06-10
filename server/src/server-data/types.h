@@ -20,7 +20,10 @@ using PlayerId = uint8_t;
 struct Player {
     std::string name;
     std::string address;
-    size_t poll_id;
+
+    Player() = default;
+
+    Player(std::string name, std::string address) : name(name), address(address) {}
 };
 
 struct Position {
@@ -28,6 +31,7 @@ struct Position {
     uint16_t y;
 
     Position() = default;
+
     Position(uint16_t x, uint16_t y) : x(x), y(y) {}
 };
 
@@ -49,6 +53,7 @@ struct Bomb {
     uint16_t timer;
 
     Bomb() = default;
+
     Bomb(Position position, uint16_t timer) : position(position), timer(timer) {}
 };
 

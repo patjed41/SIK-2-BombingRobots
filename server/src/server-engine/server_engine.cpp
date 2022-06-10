@@ -1,8 +1,6 @@
 #include "server_engine.h"
-#include "../err.h"
 #include "../net/net.h"
 
-#include <iostream>
 #include <unistd.h>
 
 // Sets up server's listening socket.
@@ -16,15 +14,15 @@ static void set_up_listener(ServerData &data, uint16_t port) {
 // when socket [data.poll_descriptors[x].fd] is responsible for communication
 // with him.
 static void disconnect_client(ServerData &data, size_t poll_id) {
-    close_socket(data.poll_descriptors[poll_id].fd);
+    close(data.poll_descriptors[poll_id].fd);
     data.poll_descriptors[poll_id].fd = -1;
     data.clients_buffers[poll_id].clear();
-    data.clients_last_messages[poll_id] = 0;
+    data.clients_last_messages[poll_id] = NO_MSG;
     data.active_clients--;
 
-    for (auto & player : data.players) {
-        if (player.second.poll_id == poll_id) {
-            data.disconnected_players.emplace(player.first);
+    for (const auto & player_id : data.poll_ids) {
+        if (player_id.second == poll_id) {
+            data.disconnected_players.emplace(player_id.first);
         }
     }
 }
@@ -36,6 +34,24 @@ static void disconnect_if_not(bool send_succeeded, ServerData &data, size_t poll
     }
 }
 
+// Sends starting messages to new client with poll id [poll_id].
+static void welcome(const ServerParameters &parameters, ServerData &data, size_t poll_id) {
+    bool sends_succeeded = true;
+    sends_succeeded &= send_message(data.poll_descriptors[poll_id].fd,
+                                    build_hello(parameters), NO_FLAGS);
+    if (data.in_lobby) {
+        sends_succeeded &= send_message(data.poll_descriptors[poll_id].fd,
+                                        data.all_accepted_player_messages, NO_FLAGS);
+    }
+    else {
+        sends_succeeded &= send_message(data.poll_descriptors[poll_id].fd,
+                                        build_game_started(data), NO_FLAGS);
+        sends_succeeded &= send_message(data.poll_descriptors[poll_id].fd,
+                                        data.all_turn_messages, NO_FLAGS);
+    }
+    disconnect_if_not(sends_succeeded, data, poll_id);
+}
+
 // Accepts new client and sends to him starting messages if there is new client
 // who wants to join and accepting him is possible.
 static void try_accepting_new_client(const ServerParameters &parameters, ServerData &data) {
@@ -45,34 +61,36 @@ static void try_accepting_new_client(const ServerParameters &parameters, ServerD
 
     sockaddr_in6 client_address;
     int client_fd = accept_connection(data.poll_descriptors[0].fd, &client_address);
-    turn_off_nagle(client_fd);
+    if (client_fd == -1) {
+        return;
+    }
+
+    if (!turn_off_nagle(client_fd)) {
+        close(client_fd);
+        return;
+    }
 
     size_t poll_id;
     for (poll_id = 1; poll_id <= MAX_CLIENTS; poll_id++) {
         if (data.poll_descriptors[poll_id].fd == -1) {
+            std::string address_str = get_address(client_address);
+            if (address_str == "fail") {
+                close(client_fd);
+                return;
+            }
+            data.clients_addresses[poll_id] = address_str;
             data.poll_descriptors[poll_id].fd = client_fd;
-            data.clients_addresses[poll_id] = get_address(client_address);
             data.active_clients++;
-            break;
+            welcome(parameters, data, poll_id);
+            return;
         }
     }
-
-    bool sends_succeeded = true;
-    sends_succeeded &= send_message(client_fd, build_hello(parameters), NO_FLAGS);
-    if (data.in_lobby) {
-        sends_succeeded &= send_message(client_fd, data.all_accepted_player_messages, NO_FLAGS);
-    }
-    else {
-        sends_succeeded &= send_message(client_fd, build_game_started(data), NO_FLAGS);
-        sends_succeeded &= send_message(client_fd, data.all_turn_messages, NO_FLAGS);
-    }
-    disconnect_if_not(sends_succeeded, data, poll_id);
 }
 
 // Checks if client with poll id [poll_id] is already a player.
 static bool is_player(ServerData &data, size_t poll_id) {
-    for (auto & player : data.players) {
-        if (player.second.poll_id == poll_id) {
+    for (const auto & player_id : data.poll_ids) {
+        if (player_id.second == poll_id) {
             return true;
         }
     }
@@ -82,16 +100,14 @@ static bool is_player(ServerData &data, size_t poll_id) {
 
 // Makes client with poll id [poll_id] a player with name [name].
 static void create_new_player(ServerData &data, size_t poll_id, const std::string &name) {
-    Player new_player;
-    new_player.name = name;
-    new_player.address = data.clients_addresses[poll_id];
-    new_player.poll_id = poll_id;
-    data.players[(uint8_t) data.players.size()] = new_player;
+    data.poll_ids[(PlayerId) data.players.size()] = poll_id;
+    Player new_player(name, data.clients_addresses[poll_id]);
+    data.players[(PlayerId) data.players.size()] = new_player;
 }
 
 // Sends [message] to all clients.
 static void send_message_to_all(ServerData &data, const List<uint8_t> &message) {
-    for (int i = 1; i <= MAX_CLIENTS; ++i) {
+    for (int i = 1; i <= MAX_CLIENTS; i++) {
         if (data.poll_descriptors[i].fd != -1) {
             disconnect_if_not(send_message(data.poll_descriptors[i].fd, message, NO_FLAGS), data, i);
         }
@@ -225,11 +241,12 @@ static void start_new_game(const ServerParameters &parameters, ServerData &data)
     send_game_started_to_all(data);
     send_turn_0_to_all(parameters, data);
     data.set_up_new_game();
-    data.clear_client_last_messages();
+    data.clear_clients_last_messages();
 }
 
 // Processes next turn.
 static void process_next_turn(const ServerParameters &parameters, ServerData &data) {
+    data.next_turn();
     send_turn_to_all(parameters, data);
 
     if (data.turn == parameters.game_length) {
@@ -237,7 +254,7 @@ static void process_next_turn(const ServerParameters &parameters, ServerData &da
         data.clear_state();
     }
 
-    data.clear_client_last_messages();
+    data.clear_clients_last_messages();
 }
 
 [[noreturn]] void run(const ServerParameters &parameters) {
