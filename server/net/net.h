@@ -1,5 +1,5 @@
-#ifndef NET_H
-#define NET_H
+#ifndef SERVER_NET_H
+#define SERVER_NET_H
 
 #include <stdint.h>
 #include <arpa/inet.h>
@@ -32,4 +32,4 @@ std::string get_address(const sockaddr_in6 &address);
 // Sends [message] via [socket_fd]. Returns false if sending failed.
 bool send_message(int socket_fd, const List<uint8_t> &message, int flags);
 
-#endif // NET_H
+#endif // SERVER_NET_H

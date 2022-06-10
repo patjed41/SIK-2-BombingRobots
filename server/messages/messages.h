@@ -1,5 +1,5 @@
-#ifndef MESSAGES_H
-#define MESSAGES_H
+#ifndef SERVER_MESSAGES_H
+#define SERVER_MESSAGES_H
 
 #include "../server-data/server_data.h"
 #include "../server-parameters/server_parameters.h"
@@ -60,4 +60,4 @@ void read_place_block(Deque<uint8_t> &buffer);
 // correct.
 uint8_t read_move(Deque<uint8_t> &buffer);
 
-#endif // MESSAGES_H
+#endif // SERVER_MESSAGES_H
