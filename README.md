@@ -98,7 +98,7 @@ It runs on port 2002 and expects the client to run on port 2003. The first launc
 Firstly, check command line parameters that the client takes. Open the third terminal, go to the `build` directory and run:
 
 ```
-./robots_client -h
+./robots-client -h
 ```
 Meaning of these parameters is obvious. Let's run the client
 ```
