@@ -63,7 +63,7 @@ git clone https://github.com/agluszak/mimuw-sik-2022-public.git
 
 Clone this repository (not in the directory of repository with GUI), go to its directory and run:
 ```
-mkdir build && cd build && cmake .. $$ make
+mkdir build && cd build && cmake .. && make
 ```
 
 #### Run
