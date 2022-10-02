@@ -78,7 +78,7 @@ Let's try a single player game. Firstly, run the server. Server gets a few comma
 ```
 Most of them are self-explanatory and even if they aren't, experiment with the game to find out their meaning. I'd like to only point out that `<turn_duration>` is in milliseconds and `<seed>` is used just for randomness. Let's finally run the server in the first terminal:
 ```
-./robots-server -b 3 -c 1 -d 1000 -e 3 -k 5 -l 20 -n single_player_server -p 2001 -s 41 -x 10 -y 10
+./robots-server -b 4 -c 1 -d 1000 -e 3 -k 5 -l 20 -n single_player_server -p 2001 -s 41 -x 10 -y 10
 ```
 The server is running on port 2001.
 
