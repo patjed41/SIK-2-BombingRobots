@@ -175,7 +175,7 @@ static void findExplosions(ClientData &data, const Position &bomb_position) {
     Position position = convertPosition(bomb_position);
     for (uint16_t i = 0; i <= host_explosion_radius; i++) {
         data.explosions.insert(convertPosition(position));
-        if (data.blocks.contains(convertPosition(position)) || position.y == ntohs(data.size_y) - 1) {
+        if (data.blocks.find(convertPosition(position)) != data.blocks.end() || position.y == ntohs(data.size_y) - 1) {
             break;
         }
         position.y++;
@@ -185,7 +185,7 @@ static void findExplosions(ClientData &data, const Position &bomb_position) {
     position = convertPosition(bomb_position);
     for (uint16_t i = 0; i <= host_explosion_radius; i++) {
         data.explosions.insert(convertPosition(position));
-        if (data.blocks.contains(convertPosition(position)) || position.x == ntohs(data.size_x) - 1) {
+        if (data.blocks.find(convertPosition(position)) != data.blocks.end()|| position.x == ntohs(data.size_x) - 1) {
             break;
         }
         position.x++;
@@ -195,7 +195,7 @@ static void findExplosions(ClientData &data, const Position &bomb_position) {
     position = convertPosition(bomb_position);
     for (uint16_t i = 0; i <= host_explosion_radius; i++) {
         data.explosions.insert(convertPosition(position));
-        if (data.blocks.contains(convertPosition(position)) || position.y == 0) {
+        if (data.blocks.find(convertPosition(position)) != data.blocks.end() || position.y == 0) {
             break;
         }
         position.y--;
@@ -205,7 +205,7 @@ static void findExplosions(ClientData &data, const Position &bomb_position) {
     position = convertPosition(bomb_position);
     for (uint16_t i = 0; i <= host_explosion_radius; i++) {
         data.explosions.insert(convertPosition(position));
-        if (data.blocks.contains(convertPosition(position)) || position.x == 0) {
+        if (data.blocks.find(convertPosition(position)) != data.blocks.end() || position.x == 0) {
             break;
         }
         position.x--;
@@ -473,3 +473,4 @@ void send_message_to_gui(ClientData &data) {
         send_game(data);
     }
 }
+

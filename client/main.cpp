@@ -29,7 +29,7 @@ void initiate_connections(const ClientParameters &parameters) {
 }
 
 // Function executed by thread that reads from GUI and sends to server.
-[[noreturn]] void *from_gui_to_server([[maybe_unused]] void *thread_data) {
+[[noreturn]] void *from_gui_to_server(void *thread_data) {
     while (true) {
         uint8_t message_type = read_message_from_gui(data);
         send_message_to_server(data, message_type);

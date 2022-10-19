@@ -109,7 +109,7 @@ static bool try_moving_player(const ServerParameters &parameters, ServerData &da
         new_position.x--;
     }
 
-    if (data.blocks.contains(new_position)) {
+    if (data.blocks.find(new_position) != data.blocks.end()) {
         return false;
     }
 
@@ -154,7 +154,7 @@ static void find_destroyed_up(const ServerParameters &parameters, ServerData &da
     Position explosion_position = data.bombs[id].position;
     for (uint16_t i = 0; i <= parameters.explosion_radius; i++) {
         find_destroyed_robots(data, explosion_position);
-        if (data.blocks.contains(explosion_position)) {
+        if (data.blocks.find(explosion_position) != data.blocks.end()) {
             data.blocks_destroyed.emplace(explosion_position);
             break;
         }
@@ -171,7 +171,7 @@ static void find_destroyed_right(const ServerParameters &parameters, ServerData 
     Position explosion_position = data.bombs[id].position;
     for (uint16_t i = 0; i <= parameters.explosion_radius; i++) {
         find_destroyed_robots(data, explosion_position);
-        if (data.blocks.contains(explosion_position)) {
+        if (data.blocks.find(explosion_position) != data.blocks.end()) {
             data.blocks_destroyed.emplace(explosion_position);
             break;
         }
@@ -188,7 +188,7 @@ static void find_destroyed_down(const ServerParameters &parameters, ServerData &
     Position explosion_position = data.bombs[id].position;
     for (uint16_t i = 0; i <= parameters.explosion_radius; i++) {
         find_destroyed_robots(data, explosion_position);
-        if (data.blocks.contains(explosion_position)) {
+        if (data.blocks.find(explosion_position) != data.blocks.end()) {
             data.blocks_destroyed.emplace(explosion_position);
             break;
         }
@@ -205,7 +205,7 @@ static void find_destroyed_left(const ServerParameters &parameters, ServerData &
     Position explosion_position = data.bombs[id].position;
     for (uint16_t i = 0; i <= parameters.explosion_radius; i++) {
         find_destroyed_robots(data, explosion_position);
-        if (data.blocks.contains(explosion_position)) {
+        if (data.blocks.find(explosion_position) != data.blocks.end()) {
             data.blocks_destroyed.emplace(explosion_position);
             break;
         }
@@ -265,9 +265,11 @@ static void clear_exploded_bombs(ServerData &data) {
 // Removes destroyed blocks from [data].
 static void clear_destroyed_blocks(ServerData &data) {
     Set<Position> survived_blocks;
-    std::set_difference(data.blocks.begin(), data.blocks.end(),
-                        data.all_blocks_destroyed.begin(), data.all_blocks_destroyed.end(),
-                        std::inserter(survived_blocks, survived_blocks.end()));
+    for (const auto block : data.blocks) {
+        if (data.all_blocks_destroyed.find(block) == data.all_blocks_destroyed.end()) {
+            survived_blocks.insert(block);
+        }
+    }
     data.blocks = survived_blocks;
 }
 
@@ -317,7 +319,7 @@ List<uint8_t> build_turn_0(const ServerParameters &parameters, ServerData &data)
     // Place blocks.
     for (uint16_t i = 0; i < parameters.initial_blocks; i++) {
         Position position = get_random_position(parameters, data);
-        if (!data.blocks.contains(position)) {
+        if (data.blocks.find(position) == data.blocks.end()) {
             spawn_block(data, position, events_message);
             events++;
         }
@@ -340,19 +342,19 @@ List<uint8_t> build_turn(const ServerParameters &parameters, ServerData &data) {
 
     for (PlayerId id = 0; id < parameters.players_count; id++) {
         uint8_t last_message = data.clients_last_messages[data.poll_ids[id]];
-        if (data.all_robots_destroyed.contains(id)) {
+        if (data.all_robots_destroyed.find(id) != data.all_robots_destroyed.end()) {
             spawn_player(data, id, get_random_position(parameters, data), events_message);
             data.scores[id]++;
             events++;
         }
-        else if (data.disconnected_players.contains(id)) {
+        else if (data.disconnected_players.find(id) != data.disconnected_players.end()) {
             continue;
         }
         else if (last_message == PLACE_BOMB) {
             spawn_bomb(data, data.player_positions[id], parameters.bomb_timer, events_message);
             events++;
         }
-        else if (last_message == PLACE_BLOCK && !data.blocks.contains(data.player_positions[id])) {
+        else if (last_message == PLACE_BLOCK && data.blocks.find(data.player_positions[id]) == data.blocks.end()) {
             spawn_block(data, data.player_positions[id], events_message);
             events++;
         }
@@ -431,3 +433,4 @@ uint8_t read_move(Deque<uint8_t> &buffer) {
     buffer.pop_front();
     return (uint8_t) result;
 }
+
